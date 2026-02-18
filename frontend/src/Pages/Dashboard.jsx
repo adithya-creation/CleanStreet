@@ -1,7 +1,8 @@
+/* eslint-disable no-unused-vars */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUser,  faMapLocationDot,  faCity,  faChartLine,  faComments, faPlus, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faMapLocationDot, faCity, faChartLine, faComments, faPlus, faEye } from '@fortawesome/free-solid-svg-icons';
 
 const Dashboard = () => {
   const containerVariants = {
