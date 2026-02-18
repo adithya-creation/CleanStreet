@@ -1,11 +1,18 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faUser } from '@fortawesome/free-solid-svg-icons'
+import { faUser } from '@fortawesome/free-solid-svg-icons';
+import cleanStreetBg from '../assets/Media.jpg';
 const Navbar = () => {
   return (
     <div>
-
+      <motion.div 
+        initial={{ opacity: 0 }} 
+        animate={{ opacity: 1 }} 
+        transition={{ duration: 0.5 }}
+        className="absolute inset-0 z-0 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: `url(${cleanStreetBg})` }}
+      />
       <motion.nav 
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}

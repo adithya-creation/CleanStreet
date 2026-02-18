@@ -3,6 +3,7 @@ import './App.css'
 import Navbar from './Pages/NavBar'
 import Dashboard from './Pages/Dashboard'
 import Footer from './Pages/Footer'
+import Register from "./pages/Register";
 
 function App() {
   return (
@@ -12,7 +13,6 @@ function App() {
       <Footer/>
     </>
   )
-import Register from "./pages/Register";
 
 function App() {
   return <Register />;
