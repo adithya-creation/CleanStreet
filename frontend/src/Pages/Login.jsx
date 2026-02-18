@@ -1,11 +1,9 @@
-import React from 'react'
-import { motion } from 'framer-motion';
+import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEnvelope,faLock,faExclamationCircle,faCheckCircle,faTimes } from '@fortawesome/free-solid-svg-icons';
-import cleanStreetBg from '../assets/Background.jpg'
+import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 const Login = () => {
   return (
-    <div >
+    <div>
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
             <div className=' bg-white/90 backdrop-blur-sm p-10 md:p-12 rounded-2xl shadow-2xl w-full max-w-md border border-white/50'>
             <h2 className='text-3xl font-extrabold text-gray-800 text-center mb-8 tracking-tight'>LOGIN</h2>
