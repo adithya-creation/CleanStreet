@@ -58,7 +58,6 @@ export default function Register() {
     <>
       <Header />
 
-      {/* 🔼 FORM MOVED UP */}
       <div
         className="min-h-screen w-full flex justify-center items-start pt-6 bg-cover bg-center bg-no-repeat bg-fixed px-4 py-10"
         style={{ backgroundImage: `url(${bgImage})` }}

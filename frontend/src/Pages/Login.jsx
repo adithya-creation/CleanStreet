@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 
 const Login = () => {
-  const navigate = useNavigate(); // ⭐ navigation
+  const navigate = useNavigate(); 
 
   return (
     <div>
@@ -47,7 +47,6 @@ const Login = () => {
               </div>
             </div>
 
-            {/* ⭐ LOGIN BUTTON → DASHBOARD */}
             <button
               type="button"
               onClick={() => navigate("/dashboard")}
