@@ -57,12 +57,13 @@ export default function Register() {
   return (
     <>
       <Header />
+<div
+  className="min-h-screen w-full flex justify-center items-start pt-2 bg-cover bg-center bg-no-repeat bg-fixed px-4"
+  style={{ backgroundImage: `url(${bgImage})` }}
+>
 
-      <div
-        className="min-h-screen w-full flex justify-center items-start pt-6 bg-cover bg-center bg-no-repeat bg-fixed px-4 py-10"
-        style={{ backgroundImage: `url(${bgImage})` }}
-      >
-        <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200">
+        
+<div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 -mt-5">
 
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">
             Register for CleanStreet
