@@ -1,8 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import bgImage from "../assets/Background.jpeg";
+import { Link } from "react-router-dom";
+
 
 export default function Register() {
+  useEffect(() => {
+    document.body.style.overflowY = "hidden";
+    return () => {
+      document.body.style.overflowY = "auto";
+    };
+  }, []);
+
   const [form, setForm] = useState({
     name: "",
     username: "",
@@ -49,8 +58,9 @@ export default function Register() {
     <>
       <Header />
 
+      {/* 🔼 FORM MOVED UP */}
       <div
-        className="min-h-screen flex justify-center items-center bg-cover bg-center px-4"
+        className="min-h-screen w-full flex justify-center items-start pt-6 bg-cover bg-center bg-no-repeat bg-fixed px-4 py-10"
         style={{ backgroundImage: `url(${bgImage})` }}
       >
         <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200">
@@ -150,9 +160,13 @@ export default function Register() {
             </button>
           </div>
 
-          <p className="text-center text-red-400 mt-4 font-medium cursor-pointer hover:underline">
-            Already have an account? Login
-          </p>
+          <Link to="/login">
+  <p className="text-center text-red-400 mt-4 font-medium cursor-pointer hover:underline">
+    Already have an account? Login
+  </p>
+</Link>
+
+
         </div>
       </div>
     </>
