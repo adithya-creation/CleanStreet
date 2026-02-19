@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 
 const Login = () => {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState({});
+
+  const handleLogin = () => {
+    let newErrors = {};
+
+    if (!email) newErrors.email = "Enter email";
+    if (!password) newErrors.password = "Enter password";
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0) {
+      navigate("/dashboard");
+    }
+  };
 
   return (
     <div>
@@ -15,8 +31,9 @@ const Login = () => {
             LOGIN
           </h2>
 
-          <form>
+          <form onSubmit={(e) => e.preventDefault()}>
 
+            {/* EMAIL */}
             <div>
               <label className='block text-gray-700 font-bold mb-2 text-sm'>Email</label>
               <div className="relative">
@@ -25,14 +42,21 @@ const Login = () => {
                 </span>
                 <input
                   type="email"
-                  name="email"
                   placeholder='Enter your email'
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-300 transition-all text-sm"
                 />
               </div>
+
+    
+              {errors.email && (
+                <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+              )}
             </div>
 
-            <div>
+          
+            <div className="mt-4">
               <label className='block text-gray-700 font-bold mb-2 text-sm'>Password</label>
               <div className="relative">
                 <span className="absolute left-4 top-3 text-gray-400">
@@ -40,21 +64,29 @@ const Login = () => {
                 </span>
                 <input
                   type="password"
-                  name="password"
                   placeholder='Enter your password'
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-300 transition-all text-sm"
                 />
               </div>
+
+        
+              {errors.password && (
+                <p className="text-red-500 text-sm mt-1">{errors.password}</p>
+              )}
             </div>
 
+         
             <button
               type="button"
-              onClick={() => navigate("/dashboard")}
-              className="w-full bg-rose-400 hover:bg-rose-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-rose-200 transition-all mt-4"
+              onClick={handleLogin}
+              className="w-full bg-rose-400 hover:bg-rose-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-rose-200 transition-all mt-6"
             >
               Login
             </button>
 
+       
             <div className="text-center mt-6">
               <p className="text-sm text-gray-500">
                 Don't have an account?
