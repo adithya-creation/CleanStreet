@@ -1,0 +1,33 @@
+const mongoose = require('mongoose');
+
+const ComplaintSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    title: { type: String, required: true, trim: true },
+    description: { type: String, required: true },
+    photo: { type: String },
+    locationCoords: {
+      type: {
+        type: String,
+        enum: ['Point'],
+      },
+      coordinates: {
+        type: [Number], // [lng, lat]
+      },
+    },
+    address: { type: String },
+    assignedTo: { type: String }, // office or volunteer id/name
+    status: {
+      type: String,
+      enum: ['received', 'in_review', 'resolved'],
+      default: 'received',
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
+
+ComplaintSchema.index({ locationCoords: '2dsphere' });
+
+module.exports = mongoose.model('Complaint', ComplaintSchema);
+
