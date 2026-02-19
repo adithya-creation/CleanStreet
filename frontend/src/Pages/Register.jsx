@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import bgImage from "../assets/Background.jpeg";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
+const API_BASE_URL = "http://localhost:5000";
 
 export default function Register() {
   useEffect(() => {
@@ -11,6 +12,8 @@ export default function Register() {
       document.body.style.overflowY = "auto";
     };
   }, []);
+
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     name: "",
@@ -22,13 +25,15 @@ export default function Register() {
   });
 
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = () => {
-    let newErrors = {};
+  const validate = () => {
+    const newErrors = {};
 
     if (!form.name) newErrors.name = "Full name is required";
     if (!form.username) newErrors.username = "Username is required";
@@ -47,27 +52,78 @@ export default function Register() {
       newErrors.password = "Password must be at least 6 characters";
     }
 
+    return newErrors;
+  };
+
+  const handleSubmit = async () => {
+    setApiError("");
+
+    const newErrors = validate();
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length === 0) {
-      alert(`Registered successfully as ${form.role}`);
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch(`${API_BASE_URL}/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          role: form.role,
+          // username and phone are currently client-side only;
+          // you can map them to backend fields later if needed.
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data?.errors) {
+          setErrors((prev) => ({ ...prev, ...data.errors }));
+        }
+        setApiError(data?.message || "Registration failed. Please try again.");
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
+      navigate("/dashboard");
+    } catch (err) {
+      setApiError("Unable to connect to server. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <>
       <Header />
-<div
-  className="min-h-screen w-full flex justify-center items-start pt-2 bg-cover bg-center bg-no-repeat bg-fixed px-4"
-  style={{ backgroundImage: `url(${bgImage})` }}
->
+      <div
+        className="min-h-screen w-full flex justify-center items-start pt-2 bg-cover bg-center bg-no-repeat bg-fixed px-4"
+        style={{ backgroundImage: `url(${bgImage})` }}
+      >
+        <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 -mt-5">
 
-        
-<div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 -mt-5">
-
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4">
             Register for CleanStreet
           </h2>
+
+          {apiError && (
+            <p className="text-red-500 text-sm mb-3 text-center">{apiError}</p>
+          )}
 
           <label className="font-semibold">Role</label>
           <select
@@ -154,19 +210,18 @@ export default function Register() {
           <div className="flex justify-center mt-4">
             <button
               onClick={handleSubmit}
-              className="bg-red-400 hover:bg-red-500 text-white px-10 py-2 rounded-lg font-semibold transition"
+              disabled={isSubmitting}
+              className="bg-red-400 hover:bg-red-500 disabled:bg-red-300 text-white px-10 py-2 rounded-lg font-semibold transition"
             >
-              Register
+              {isSubmitting ? "Registering..." : "Register"}
             </button>
           </div>
 
           <Link to="/login">
-  <p className="text-center text-red-400 mt-4 font-medium cursor-pointer hover:underline">
-    Already have an account? Login
-  </p>
-</Link>
-
-
+            <p className="text-center text-red-400 mt-4 font-medium cursor-pointer hover:underline">
+              Already have an account? Login
+            </p>
+          </Link>
         </div>
       </div>
     </>

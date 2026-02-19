@@ -3,22 +3,72 @@ import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
 
+const API_BASE_URL = "http://localhost:5000";
+
 const Login = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
+  const [apiError, setApiError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = () => {
-    let newErrors = {};
+  const validate = () => {
+    const newErrors = {};
 
     if (!email) newErrors.email = "Enter email";
     if (!password) newErrors.password = "Enter password";
 
+    return newErrors;
+  };
+
+  const handleLogin = async () => {
+    setApiError("");
+    const newErrors = validate();
     setErrors(newErrors);
 
-    if (Object.keys(newErrors).length === 0) {
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data?.errors) {
+          setErrors((prev) => ({ ...prev, ...data.errors }));
+        }
+
+        if (response.status === 401) {
+          setApiError("Invalid email or password");
+        } else {
+          setApiError(data?.message || "Login failed. Please try again.");
+        }
+        return;
+      }
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      }
+      if (data.user) {
+        localStorage.setItem("user", JSON.stringify(data.user));
+      }
+
       navigate("/dashboard");
+    } catch (err) {
+      setApiError("Unable to connect to server. Please try again later.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -27,9 +77,13 @@ const Login = () => {
       <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
         <div className='bg-white/90 backdrop-blur-sm p-10 md:p-12 rounded-2xl shadow-2xl w-full max-w-md border border-white/50'>
 
-          <h2 className='text-3xl font-extrabold text-gray-800 text-center mb-8 tracking-tight'>
+          <h2 className='text-3xl font-extrabold text-gray-800 text-center mb-4 tracking-tight'>
             LOGIN
           </h2>
+
+          {apiError && (
+            <p className="text-red-500 text-sm mb-3 text-center">{apiError}</p>
+          )}
 
           <form onSubmit={(e) => e.preventDefault()}>
 
@@ -81,9 +135,10 @@ const Login = () => {
             <button
               type="button"
               onClick={handleLogin}
-              className="w-full bg-rose-400 hover:bg-rose-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-rose-200 transition-all mt-6"
+              disabled={isSubmitting}
+              className="w-full bg-rose-400 hover:bg-rose-500 disabled:bg-rose-300 text-white font-bold py-3 rounded-lg shadow-lg shadow-rose-200 transition-all mt-6"
             >
-              Login
+              {isSubmitting ? "Logging in..." : "Login"}
             </button>
 
        
