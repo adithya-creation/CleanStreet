@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import Header from "../components/Header";
 import bgImage from "../assets/Background.jpeg";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -51,6 +50,7 @@ export default function Register() {
     if (form.password && form.password.length < 6) {
       newErrors.password = "Password must be at least 6 characters";
     }
+
 
     return newErrors;
   };
@@ -110,9 +110,8 @@ export default function Register() {
 
   return (
     <>
-      <Header />
       <div
-        className="min-h-screen w-full flex justify-center items-start pt-2 bg-cover bg-center bg-no-repeat bg-fixed px-4"
+        className="min-h-screen w-full flex justify-center items-start pt-15 bg-cover bg-center bg-no-repeat bg-fixed px-4"
         style={{ backgroundImage: `url(${bgImage})` }}
       >
         <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 -mt-5">
@@ -206,6 +205,16 @@ export default function Register() {
           {errors.password && (
             <p className="text-red-500 text-sm mb-2">{errors.password}</p>
           )}
+
+          
+          <label className="font-semibold">Location</label>
+          <input
+            name="location"
+            type="text"
+            placeholder="Enter your location"
+            onChange={handleChange}
+            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
+          />
 
           <div className="flex justify-center mt-4">
             <button
