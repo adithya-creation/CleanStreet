@@ -1,73 +1,68 @@
-/* eslint-disable no-unused-vars */
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
-import cleanStreetBg from '../assets/Media.jpg';
 
 const Navbar = () => {
   return (
-    <div>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="absolute inset-0 z-0 bg-center bg-cover bg-no-repeat"
-        style={{ backgroundImage: `url(${cleanStreetBg})` }}
-      />
+    <div className="relative z-50">
       <motion.nav
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.6 }}
-        className="relative z-20 bg-white flex sticky justify-between p-3 items-center md:px-16 w-full"
+        
+        className="bg-white/95 backdrop-blur-sm flex sticky top-0 justify-between p-3 items-center md:px-16 w-full shadow-md"
       >
+        
         <Link
           to="/"
-          className="text-2xl font-bold text-teal-600 tracking-wide cursor-pointer"
+          className="text-2xl font-bold text-teal-600 tracking-wide cursor-pointer flex items-center"
         >
-          CLEAN STREET
+          CLEAN <span className="text-gray-800 ml-1">STREET</span>
         </Link>
 
-        <div className="hidden md:flex space-x-8 text-sm font-semibold text-gray-500">
-          <Link to="/" className="hover:text-teal-600 transition-colors relative group">
+        <div className="hidden md:flex space-x-8 text-sm font-bold text-gray-600">
+          <Link to="/" className="hover:text-teal-600 transition-colors">
             HOME
           </Link>
-          <a href="#about" className="hover:text-teal-600 transition-colors relative group">
+          <a href="#about" className="hover:text-teal-600 transition-colors">
             ABOUT
           </a>
           <Link
             to="/login"
-            className="hover:text-teal-600 transition-colors relative group"
+            className="hover:text-teal-600 transition-colors"
           >
             REPORT ISSUE
           </Link>
           <Link
             to="/login"
-            className="hover:text-teal-600 transition-colors relative group"
+            className="hover:text-teal-600 transition-colors"
           >
             VIEW COMPLAINT
           </Link>
         </div>
 
-        <div className="flex items-center space-x-3">
+      
+        <div className="flex items-center space-x-2 sm:space-x-3">
           <Link
             to="/login"
-            className="px-4 py-2 rounded-lg border border-teal-600 text-teal-600 font-semibold text-sm hover:bg-teal-50 transition-colors"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border border-teal-600 text-teal-600 font-semibold text-xs sm:text-sm hover:bg-teal-50 transition-colors"
           >
             Login
           </Link>
+
           <Link
             to="/login"
-            className="px-4 py-2 rounded-lg border border-red-500 text-red-600 font-semibold text-sm hover:bg-teal-50 transition-colors"
+            className="hidden sm:block px-4 py-2 rounded-lg border border-red-200 text-gray-500 font-semibold text-sm hover:bg-red-50 hover:text-red-600 transition-colors"
           >
             Logout
           </Link>
+
           <Link
             to="/register"
-            className="px-4 py-2 rounded-lg bg-red-400 hover:bg-red-500 text-white font-semibold text-sm transition-colors"
+            className="px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg bg-red-400 hover:bg-red-400 text-white font-semibold text-xs sm:text-sm shadow-md transition-colors"
           >
             Register
           </Link>
-          
         </div>
       </motion.nav>
     </div>
