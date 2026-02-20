@@ -51,9 +51,15 @@ const Navbar = () => {
         <div className="flex items-center space-x-3">
           <Link
             to="/login"
-            className="px-4 py-2 rounded-lg border border-teal-500 text-teal-600 font-semibold text-sm hover:bg-teal-50 transition-colors"
+            className="px-4 py-2 rounded-lg border border-teal-600 text-teal-600 font-semibold text-sm hover:bg-teal-50 transition-colors"
           >
             Login
+          </Link>
+          <Link
+            to="/login"
+            className="px-4 py-2 rounded-lg border border-red-500 text-red-600 font-semibold text-sm hover:bg-teal-50 transition-colors"
+          >
+            Logout
           </Link>
           <Link
             to="/register"
@@ -61,6 +67,7 @@ const Navbar = () => {
           >
             Register
           </Link>
+          
         </div>
       </motion.nav>
     </div>
