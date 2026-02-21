@@ -5,6 +5,7 @@ import Footer from './Pages/Footer';
 import Login from './Pages/Login';
 import Register from './Pages/Register';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Profiledas from "./Pages/Profiledas";
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profiledas" element={<Profile />} />
       </Routes>
       <Footer />
     </Router>

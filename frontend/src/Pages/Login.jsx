@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from "react-router-dom";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from "../context/AuthContext";
 
 const API_BASE_URL = "http://localhost:5000";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState({});
@@ -57,13 +59,7 @@ const Login = () => {
         return;
       }
 
-      if (data.token) {
-        localStorage.setItem("token", data.token);
-      }
-      if (data.user) {
-        localStorage.setItem("user", JSON.stringify(data.user));
-      }
-
+     login(data);
       navigate("/dashboard");
     } catch (err) {
       setApiError("Unable to connect to server. Please try again later.");
