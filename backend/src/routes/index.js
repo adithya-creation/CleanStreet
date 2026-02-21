@@ -108,6 +108,58 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// ─── Auth: Update profile ─────────────────────────────────────
+router.patch('/me', auth, async (req, res) => {
+  try {
+    const { name, email, location } = req.body || {};
+    const updates = {};
+    if (name?.trim()) updates.name = name.trim();
+    if (email?.trim()) {
+      if (!isValidEmail(email)) return res.status(400).json({ success: false, message: 'Invalid email' });
+      // Check email not taken by someone else
+      const existing = await User.findOne({ email: email.trim().toLowerCase(), _id: { $ne: req.user.id } });
+      if (existing) return res.status(409).json({ success: false, message: 'Email already in use' });
+      updates.email = email.trim().toLowerCase();
+    }
+    if (location !== undefined) updates.location = location?.trim();
+
+    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('name email role location profilePhoto');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // Return updated token so frontend stays in sync
+    const token = createToken(user);
+    return res.json({ success: true, message: 'Profile updated', user, token });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Auth: Change password ────────────────────────────────────
+router.patch('/me/password', auth, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body || {};
+    if (!currentPassword || !newPassword)
+      return res.status(400).json({ success: false, message: 'Both passwords are required' });
+    if (!isValidPassword(newPassword))
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters' });
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    return res.json({ success: true, message: 'Password changed successfully' });
+  } catch (error) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
 // ─── Complaints: Get all ─────────────────────────────────────
 router.get('/complaints', auth, async (req, res) => {
   try {

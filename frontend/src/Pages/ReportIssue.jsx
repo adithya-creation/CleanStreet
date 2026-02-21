@@ -1,14 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, MapPin, Camera, Send, X, AlertCircle } from 'lucide-react';
+import { Info, MapPin, Camera, Send, X, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
+import { createComplaint } from '../services/complaintService';
 
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 let DefaultIcon = L.icon({
   iconUrl: markerIcon,
   shadowUrl: markerShadow,
@@ -21,13 +23,12 @@ const ReportIssue = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
   const [formData, setFormData] = useState({
-    title: '',
-    type: '',
-    priority: '',
-    address: '',
-    landmark: '',
-    description: ''
+    title: '', type: '', priority: '', address: '', landmark: '', description: ''
   });
 
   const [position, setPosition] = useState([20.5937, 78.9629]);
@@ -62,6 +63,7 @@ const ReportIssue = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setError('');
   };
 
   const handleImageChange = (event) => {
@@ -70,12 +72,48 @@ const ReportIssue = () => {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) { setError('Issue title is required.'); return; }
+    if (!formData.description.trim()) { setError('Please describe the issue.'); return; }
+    if (!formData.address.trim()) { setError('Please pin a location on the map.'); return; }
+
+    setSubmitting(true);
+    setError('');
+    try {
+      await createComplaint({
+        title: formData.title,
+        description: formData.description,
+        address: formData.address,
+        locationCoords: {
+          type: 'Point',
+          coordinates: [position[1], position[0]], // [lng, lat]
+        },
+      });
+      setSuccess(true);
+      setTimeout(() => navigate('/complaints'), 1500);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to submit. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
+
+      {/* Success toast */}
+      {success && (
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-teal-500 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
+          <CheckCircle className="h-6 w-6" />
+          <span className="font-bold text-lg">Report submitted successfully!</span>
+        </div>
+      )}
+
       <NavBar />
 
       <div className="flex-1 max-w-7xl mx-auto p-6 w-full">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
           {/* Left: Form */}
           <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm p-8">
@@ -83,6 +121,12 @@ const ReportIssue = () => {
               <Info className="h-5 w-5 text-teal-500" />
               <h3 className="font-bold uppercase tracking-tight">Issue Details</h3>
             </div>
+
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl mb-5">
+                <AlertCircle className="h-4 w-4 shrink-0" /> {error}
+              </div>
+            )}
 
             <div className="space-y-5">
               <div>
@@ -92,7 +136,7 @@ const ReportIssue = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Issue Type *</label>
+                  <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Issue Type</label>
                   <select name="type" value={formData.type} onChange={handleInputChange} className="w-full px-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none">
                     <option value="">-- Select --</option>
                     <option value="waste">Waste / Garbage</option>
@@ -101,7 +145,7 @@ const ReportIssue = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Priority *</label>
+                  <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Priority</label>
                   <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none">
                     <option value="">-- Select --</option>
                     <option value="low">Low</option>
@@ -127,7 +171,7 @@ const ReportIssue = () => {
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Detailed Description</label>
+                <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Detailed Description *</label>
                 <textarea name="description" rows="3" value={formData.description} onChange={handleInputChange} placeholder="Describe the issue in detail..." className="w-full px-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none resize-none"></textarea>
               </div>
 
@@ -150,10 +194,13 @@ const ReportIssue = () => {
               </div>
 
               <button
-                onClick={(e) => { e.preventDefault(); navigate('/dashboard'); }}
-                className="w-full bg-[#F87171] hover:bg-[#EF4444] text-white font-black py-4 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
-                <Send className="h-4 w-4" /> SUBMIT REPORT
+                {submitting
+                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
+                  : <><Send className="h-4 w-4" /> SUBMIT REPORT</>}
               </button>
             </div>
           </div>
@@ -180,7 +227,7 @@ const ReportIssue = () => {
             </div>
           </div>
 
-        </div>
+        </form>
       </div>
 
       <Footer />

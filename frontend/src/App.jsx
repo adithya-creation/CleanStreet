@@ -6,6 +6,7 @@ import Register from './Pages/Register';
 import Dashboard from './Pages/Dashboard';
 import ReportIssue from './Pages/ReportIssue';
 import EditProfile from './Pages/Profile';
+import ViewComplaints from './Pages/ViewComplaints';
 import { isAuthenticated } from './services/authService';
 
 // Redirects to /login if no JWT token is present
@@ -25,7 +26,7 @@ function App() {
         {/* Protected routes — require JWT token */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/report" element={<ProtectedRoute><ReportIssue /></ProtectedRoute>} />
-        <Route path="/complaints" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+        <Route path="/complaints" element={<ProtectedRoute><ViewComplaints /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
 
         {/* Fallback */}
