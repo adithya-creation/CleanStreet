@@ -7,17 +7,29 @@ import Dashboard from './Pages/Dashboard';
 import ReportIssue from './Pages/ReportIssue';
 import EditProfile from './Pages/Profile';
 
+// Redirects to /login if user is not logged in
+const ProtectedRoute = ({ children }) => {
+  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+  return isLoggedIn ? children : <Navigate to="/login" replace />;
+};
+
 function App() {
   return (
     <Router>
       <Routes>
+        {/* Public routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/report" element={<ReportIssue />} />
-        <Route path="/profile" element={<EditProfile />} />
-        <Route path="*" element={<Navigate to="/login" />} />
+
+        {/* Protected routes — require login */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/report" element={<ProtectedRoute><ReportIssue /></ProtectedRoute>} />
+        <Route path="/complaints" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><EditProfile /></ProtectedRoute>} />
+
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );
