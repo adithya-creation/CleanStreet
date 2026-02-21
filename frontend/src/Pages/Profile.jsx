@@ -53,7 +53,7 @@ const Profile = () => {
         </div>
       )}
 
-      <NavBar variant="app" userName={formData.fullName} onLogout={() => navigate('/login')} />
+      <NavBar />
 
       <div className="flex-1 max-w-6xl mx-auto p-6 mt-8 pb-20 w-full">
         <div className="mb-8 text-center md:text-left">

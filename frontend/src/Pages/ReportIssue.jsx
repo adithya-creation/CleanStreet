@@ -72,7 +72,7 @@ const ReportIssue = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
-      <NavBar variant="app" userName="New User" onLogout={() => navigate('/login')} />
+      <NavBar />
 
       <div className="flex-1 max-w-7xl mx-auto p-6 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

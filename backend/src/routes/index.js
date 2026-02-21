@@ -2,101 +2,62 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Complaint = require('../models/Complaint');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-const isValidEmail = (email = '') => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
-
-const isValidPassword = (password = '') => {
-  return typeof password === 'string' && password.length >= 6;
-};
-
+const isValidEmail = (email = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPassword = (password = '') => typeof password === 'string' && password.length >= 6;
 const allowedRoles = ['user', 'volunteer', 'admin'];
 
-const createToken = (user) => {
-  return jwt.sign(
+const createToken = (user) =>
+  jwt.sign(
     { id: user._id, role: user.role, email: user.email, name: user.name },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );
-};
 
-// Dashboard root route: GET /
+// ─── Health check ─────────────────────────────────────────────
 router.get('/', (req, res) => {
-  res.json({
-    page: 'dashboard',
-    message: 'Clean Street dashboard root',
-  });
+  res.json({ message: 'Clean Street API is running' });
 });
 
-// Register route: POST /register
+// ─── Auth: Register ───────────────────────────────────────────
 router.post('/register', async (req, res) => {
   try {
-    const raw = req.body || {};
-    const name = raw.name && String(raw.name).trim();
-    const email = raw.email && String(raw.email).trim().toLowerCase();
-    const password = raw.password;
-    const location = raw.location && String(raw.location).trim();
-    const role = raw.role && String(raw.role).trim();
-    const profilePhoto = raw.profilePhoto && String(raw.profilePhoto).trim();
-
+    const { name, email, password, location, role, profilePhoto } = req.body || {};
     const errors = {};
+    if (!name?.trim()) errors.name = 'Name is required';
+    if (!email?.trim()) errors.email = 'Email is required';
+    else if (!isValidEmail(email)) errors.email = 'Email is not valid';
+    if (!password) errors.password = 'Password is required';
+    else if (!isValidPassword(password)) errors.password = 'Password must be at least 6 characters';
+    if (role && !allowedRoles.includes(role)) errors.role = 'Invalid role';
 
-    if (!name) {
-      errors.name = 'Name is required';
-    }
-
-    if (!email) {
-      errors.email = 'Email is required';
-    } else if (!isValidEmail(email)) {
-      errors.email = 'Email is not valid';
-    }
-
-    if (!password) {
-      errors.password = 'Password is required';
-    } else if (!isValidPassword(password)) {
-      errors.password = 'Password must be at least 6 characters long';
-    }
-
-    if (role && !allowedRoles.includes(role)) {
-      errors.role = 'Role must be one of user, volunteer, admin';
-    }
-
-    if (Object.keys(errors).length > 0) {
+    if (Object.keys(errors).length > 0)
       return res.status(400).json({ success: false, message: 'Validation failed', errors });
-    }
 
-    const existing = await User.findOne({ email });
-    if (existing) {
+    const existing = await User.findOne({ email: email.trim().toLowerCase() });
+    if (existing)
       return res.status(409).json({ success: false, message: 'Email already registered' });
-    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
       password: hashedPassword,
-      location,
-      role: role && allowedRoles.includes(role) ? role : 'user',
-      profilePhoto,
+      location: location?.trim(),
+      role: allowedRoles.includes(role) ? role : 'user',
+      profilePhoto: profilePhoto?.trim(),
     });
 
     const token = createToken(user);
-
     return res.status(201).json({
       success: true,
       message: 'User registered successfully',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -104,51 +65,30 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login route: POST /login
+// ─── Auth: Login ─────────────────────────────────────────────
 router.post('/login', async (req, res) => {
   try {
-    const raw = req.body || {};
-    const email = raw.email && String(raw.email).trim().toLowerCase();
-    const password = raw.password;
-
+    const { email, password } = req.body || {};
     const errors = {};
+    if (!email?.trim()) errors.email = 'Email is required';
+    else if (!isValidEmail(email)) errors.email = 'Email is not valid';
+    if (!password) errors.password = 'Password is required';
 
-    if (!email) {
-      errors.email = 'Email is required';
-    } else if (!isValidEmail(email)) {
-      errors.email = 'Email is not valid';
-    }
-
-    if (!password) {
-      errors.password = 'Password is required';
-    }
-
-    if (Object.keys(errors).length > 0) {
+    if (Object.keys(errors).length > 0)
       return res.status(400).json({ success: false, message: 'Validation failed', errors });
-    }
 
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+    if (!user) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
+    if (!isMatch) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
     const token = createToken(user);
-
     return res.json({
       success: true,
       message: 'Login successful',
       token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user: { id: user._id, name: user.name, email: user.email, role: user.role },
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -156,13 +96,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Example protected route to verify JWT
+// ─── Auth: Get current user ───────────────────────────────────
 router.get('/me', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('name email role');
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
+    const user = await User.findById(req.user.id).select('name email role location profilePhoto');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     return res.json({ success: true, user });
   } catch (error) {
     console.error('Me endpoint error:', error);
@@ -170,5 +108,85 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-module.exports = router;
+// ─── Complaints: Get all ─────────────────────────────────────
+router.get('/complaints', auth, async (req, res) => {
+  try {
+    const complaints = await Complaint.find()
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 });
+    return res.json({ success: true, complaints });
+  } catch (error) {
+    console.error('Get complaints error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
+// ─── Complaints: Get mine ─────────────────────────────────────
+router.get('/complaints/mine', auth, async (req, res) => {
+  try {
+    const complaints = await Complaint.find({ user: req.user.id }).sort({ createdAt: -1 });
+    return res.json({ success: true, complaints });
+  } catch (error) {
+    console.error('Get my complaints error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Complaints: Create ───────────────────────────────────────
+router.post('/complaints', auth, async (req, res) => {
+  try {
+    const { title, description, address, locationCoords, photo } = req.body || {};
+    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
+    if (!description?.trim()) return res.status(400).json({ success: false, message: 'Description is required' });
+
+    const complaint = await Complaint.create({
+      user: req.user.id,
+      title: title.trim(),
+      description: description.trim(),
+      address: address?.trim(),
+      photo: photo?.trim(),
+      locationCoords: locationCoords || undefined,
+      status: 'received',
+    });
+
+    return res.status(201).json({ success: true, message: 'Complaint created', complaint });
+  } catch (error) {
+    console.error('Create complaint error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Complaints: Get by ID ────────────────────────────────────
+router.get('/complaints/:id', auth, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id).populate('user', 'name email');
+    if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('Get complaint error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Complaints: Update status ────────────────────────────────
+router.patch('/complaints/:id/status', auth, async (req, res) => {
+  try {
+    const { status } = req.body || {};
+    const allowed = ['received', 'in_review', 'resolved'];
+    if (!allowed.includes(status))
+      return res.status(400).json({ success: false, message: 'Invalid status' });
+
+    const complaint = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true }
+    );
+    if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('Update status error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+module.exports = router;

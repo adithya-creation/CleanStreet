@@ -1,26 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from 'lucide-react';
+import { isAuthenticated, getCurrentUser, logout } from '../../services/authService';
 
 // SVG Logo mark
 const Logo = () => (
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
         <rect width="32" height="32" rx="8" fill="#0D9488" />
-        {/* Leaf shape */}
         <path d="M16 6C16 6 8 10 8 18C8 22.4 11.6 26 16 26C20.4 26 24 22.4 24 18C24 10 16 6 16 6Z" fill="white" fillOpacity="0.9" />
-        {/* Stem */}
         <path d="M16 26V16" stroke="#0D9488" strokeWidth="1.5" strokeLinecap="round" />
-        {/* Vein */}
         <path d="M16 20C16 20 13 17 11 16" stroke="#0D9488" strokeWidth="1.2" strokeLinecap="round" />
         <path d="M16 17C16 17 18.5 14.5 20 14" stroke="#0D9488" strokeWidth="1.2" strokeLinecap="round" />
     </svg>
 );
 
-const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
+const NavBar = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const [menuOpen, setMenuOpen] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
+
+    const loggedIn = isAuthenticated();
+    const user = getCurrentUser();
+    const userName = user?.name || 'User';
 
     const navLinks = [
         { label: 'Dashboard', path: '/dashboard' },
@@ -32,11 +34,8 @@ const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
 
     const handleLogout = () => {
         setDropdownOpen(false);
-        if (onLogout) onLogout();
-        else {
-            localStorage.removeItem('isLoggedIn');
-            navigate('/login');
-        }
+        setMenuOpen(false);
+        logout();
     };
 
     return (
@@ -54,15 +53,15 @@ const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
                     </span>
                 </div>
 
-                {/* Desktop Links */}
+                {/* Desktop Nav Links */}
                 <div className="hidden md:flex items-center gap-8">
                     {navLinks.map((link) => (
                         <button
                             key={link.label}
                             onClick={() => navigate(link.path)}
                             className={`text-sm font-semibold tracking-wide transition-colors pb-0.5 border-b-2 ${isActive(link.path)
-                                ? 'text-teal-600 border-teal-500'
-                                : 'text-gray-500 border-transparent hover:text-teal-600 hover:border-teal-300'
+                                    ? 'text-teal-600 border-teal-500'
+                                    : 'text-gray-500 border-transparent hover:text-teal-600 hover:border-teal-300'
                                 }`}
                         >
                             {link.label}
@@ -70,24 +69,10 @@ const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
                     ))}
                 </div>
 
-                {/* Right side */}
+                {/* Desktop Right Side */}
                 <div className="hidden md:flex items-center gap-3">
-                    {variant === 'public' ? (
-                        <>
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="text-sm font-bold text-teal-600 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors"
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => navigate('/register')}
-                                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-5 py-2 rounded-lg shadow-md shadow-red-200 transition-all hover:scale-[1.03]"
-                            >
-                                Get Started
-                            </button>
-                        </>
-                    ) : (
+                    {loggedIn ? (
+                        /* Logged in: user avatar + dropdown */
                         <div className="relative">
                             <button
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -124,6 +109,22 @@ const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
                                 </div>
                             )}
                         </div>
+                    ) : (
+                        /* Not logged in: Login + Get Started */
+                        <>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="text-sm font-bold text-teal-600 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors"
+                            >
+                                Login
+                            </button>
+                            <button
+                                onClick={() => navigate('/register')}
+                                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-5 py-2 rounded-lg shadow-md shadow-red-200 transition-all hover:scale-[1.03]"
+                            >
+                                Get Started
+                            </button>
+                        </>
                     )}
                 </div>
 
@@ -149,27 +150,31 @@ const NavBar = ({ variant = 'public', userName = 'New User', onLogout }) => {
                             {link.label}
                         </button>
                     ))}
-                    {variant === 'public' ? (
-                        <div className="flex gap-3 mt-2">
-                            <button
-                                onClick={() => { navigate('/login'); setMenuOpen(false); }}
-                                className="flex-1 text-sm font-bold text-teal-600 border border-teal-400 py-2 rounded-lg hover:bg-teal-50 transition-colors"
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => { navigate('/register'); setMenuOpen(false); }}
-                                className="flex-1 bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold py-2 rounded-lg shadow-md shadow-red-200 transition-colors"
-                            >
-                                Get Started
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-2 border-t border-white/60 pt-3 mt-1">
-                            <button onClick={() => { navigate('/profile'); setMenuOpen(false); }} className="text-sm font-semibold text-gray-600 hover:text-teal-600 text-left">✏️ Edit Profile</button>
-                            <button onClick={() => { handleLogout(); setMenuOpen(false); }} className="text-sm font-semibold text-red-500 text-left">🚪 Logout</button>
-                        </div>
-                    )}
+
+                    <div className="border-t border-white/60 pt-3 mt-1 flex flex-col gap-2">
+                        {loggedIn ? (
+                            <>
+                                <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">Signed in as {userName}</p>
+                                <button onClick={() => { navigate('/profile'); setMenuOpen(false); }} className="text-sm font-semibold text-gray-600 hover:text-teal-600 text-left">✏️ Edit Profile</button>
+                                <button onClick={handleLogout} className="text-sm font-semibold text-red-500 text-left">🚪 Logout</button>
+                            </>
+                        ) : (
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => { navigate('/login'); setMenuOpen(false); }}
+                                    className="flex-1 text-sm font-bold text-teal-600 border border-teal-400 py-2 rounded-lg hover:bg-teal-50 transition-colors"
+                                >
+                                    Login
+                                </button>
+                                <button
+                                    onClick={() => { navigate('/register'); setMenuOpen(false); }}
+                                    className="flex-1 bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold py-2 rounded-lg shadow-md shadow-red-200 transition-colors"
+                                >
+                                    Get Started
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             )}
         </nav>
