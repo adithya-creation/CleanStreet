@@ -1,42 +1,107 @@
-import React from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEnvelope, faLock } from '@fortawesome/free-solid-svg-icons';
-const Login = () => {
-  return (
-    <div>
-        <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
-            <div className=' bg-white/90 backdrop-blur-sm p-10 md:p-12 rounded-2xl shadow-2xl w-full max-w-md border border-white/50'>
-            <h2 className='text-3xl font-extrabold text-gray-800 text-center mb-8 tracking-tight'>LOGIN</h2>
-            <form>
-                <div>
-                <label className='block text-gray-700 font-bold mb-2 text-sm'>Email</label>
-                <div className="relative">
-                    <span className="absolute left-4 top-3 text-gray-400">
-                        <FontAwesomeIcon icon={faEnvelope}/>
-                    </span>
-                    <input type="email" name="email" placeholder='Enter your email'className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-300 transition-all text-sm"/>
-                </div>
-                </div>
-                <div>
-                <label className='block text-gray-700 font-bold mb-2 text-sm'>Password</label>
-                <div className="relative">
-                    <span className="absolute left-4 top-3 text-gray-400">
-                        <FontAwesomeIcon icon={faLock}/>
-                    </span>
-                    <input type="password" name="password" placeholder='Enter your password'
-                    className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-200 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-rose-300 focus:border-rose-300 transition-all text-sm"/>
-                </div>
-                </div>
-                <button className="w-full bg-rose-400 hover:bg-rose-500 text-white font-bold py-3 rounded-lg shadow-lg shadow-rose-200 transition-all mt-4">
-                    Login
-                </button>
-                <div className="text-center mt-6">
-                    <p className="text-sm text-gray-500">Don't have an account? <a href="" className="text-red-400 font-bold hover:underline"> Register</a> </p>
-                </div>
-                </form></div>
-        </div>
-    </div>
-  )
-}
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Lock, ArrowRight, AlertCircle, Loader2 } from 'lucide-react';
+import NavBar from '../Components/common/NavBar';
+import Footer from '../Components/common/Footer';
+import { login } from '../services/authService';
 
-export default Login
+const Login = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (e) => {
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setError('');
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await login({ email: formData.email, password: formData.password });
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] flex flex-col font-sans">
+      <NavBar />
+
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-xl p-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800">Welcome Back</h1>
+            <p className="text-gray-500 mt-2">Login to CleanStreet</p>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl mb-5">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-6" onSubmit={handleLogin}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none"
+                  placeholder="Enter your email"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none"
+                  placeholder="Enter your password"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white font-bold py-3 rounded-xl shadow-lg shadow-red-200 transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><span>Login</span><ArrowRight className="h-5 w-5" /></>}
+            </button>
+          </form>
+
+          <p className="text-center mt-8 text-gray-600">
+            Don't have an account?{' '}
+            <button onClick={() => navigate('/register')} className="text-teal-600 font-bold hover:underline">
+              Register
+            </button>
+          </p>
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  );
+};
+
+export default Login;

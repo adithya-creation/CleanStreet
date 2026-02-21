@@ -1,160 +1,156 @@
-import { useState } from "react";
-import Header from "../components/Header";
-import bgImage from "../assets/Background.jpeg";
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Lock, Phone, ArrowRight, MapPin, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import NavBar from '../Components/common/NavBar';
+import Footer from '../Components/common/Footer';
+import { register } from '../services/authService';
 
-export default function Register() {
-  const [form, setForm] = useState({
-    name: "",
-    username: "",
-    email: "",
-    phone: "",
-    password: "",
-    role: "user",
+const Register = () => {
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    name: '', email: '', password: '', phone: '', location: '', role: 'user'
   });
-
-  const [errors, setErrors] = useState({});
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setError('');
   };
 
-  const handleSubmit = () => {
-    let newErrors = {};
-
-    if (!form.name) newErrors.name = "Full name is required";
-    if (!form.username) newErrors.username = "Username is required";
-    if (!form.email) newErrors.email = "Email is required";
-    if (!form.password) newErrors.password = "Password is required";
-
-    if (form.email && !/\S+@\S+\.\S+/.test(form.email)) {
-      newErrors.email = "Invalid email format";
+  const detectLocation = () => {
+    setLoadingLocation(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setFormData(prev => ({ ...prev, location: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
+          setLoadingLocation(false);
+        },
+        () => {
+          alert("Could not get location. Please type it manually.");
+          setLoadingLocation(false);
+        }
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+      setLoadingLocation(false);
     }
+  };
 
-    if (form.phone && form.phone.length !== 10) {
-      newErrors.phone = "Phone must be exactly 10 digits";
-    }
-
-    if (form.password && form.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length === 0) {
-      alert(`Registered successfully as ${form.role}`);
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        location: formData.location,
+        role: formData.role,
+      });
+      navigate('/dashboard');
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Registration failed. Please try again.';
+      const fieldErrors = err.response?.data?.errors;
+      if (fieldErrors) {
+        setError(Object.values(fieldErrors).join(' · '));
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] flex flex-col font-sans">
+      <NavBar />
 
-      <div
-        className="min-h-screen flex justify-center items-center bg-cover bg-center px-4"
-        style={{ backgroundImage: `url(${bgImage})` }}
-      >
-        <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200">
-
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6">
-            Register for CleanStreet
-          </h2>
-
-          <label className="font-semibold">Role</label>
-          <select
-            name="role"
-            onChange={handleChange}
-            className="w-full p-2 mb-3 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          >
-            <option value="user">User</option>
-            <option value="volunteer">Volunteer</option>
-            <option value="admin">Admin</option>
-          </select>
-
-          <label className="font-semibold">Full Name</label>
-          <input
-            name="name"
-            placeholder="Enter your full name"
-            value={form.name}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^[A-Za-z\s]*$/.test(value)) {
-                setForm({ ...form, name: value });
-              }
-            }}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          />
-          {errors.name && (
-            <p className="text-red-500 text-sm mb-2">{errors.name}</p>
-          )}
-
-          <label className="font-semibold">Username</label>
-          <input
-            name="username"
-            placeholder="Enter your username"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          />
-          {errors.username && (
-            <p className="text-red-500 text-sm mb-2">{errors.username}</p>
-          )}
-
-          <label className="font-semibold">Email</label>
-          <input
-            name="email"
-            placeholder="Enter your email"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          />
-          {errors.email && (
-            <p className="text-red-500 text-sm mb-2">{errors.email}</p>
-          )}
-
-          <label className="font-semibold">
-            Phone Number (Optional)
-          </label>
-          <input
-            name="phone"
-            placeholder="Enter phone number"
-            value={form.phone}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^\d*$/.test(value)) {
-                setForm({ ...form, phone: value });
-              }
-            }}
-            maxLength={10}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          />
-          {errors.phone && (
-            <p className="text-red-500 text-sm mb-2">{errors.phone}</p>
-          )}
-
-          <label className="font-semibold">Password</label>
-          <input
-            name="password"
-            type="password"
-            placeholder="Enter password"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400"
-          />
-          {errors.password && (
-            <p className="text-red-500 text-sm mb-2">{errors.password}</p>
-          )}
-
-          <div className="flex justify-center mt-4">
-            <button
-              onClick={handleSubmit}
-              className="bg-red-400 hover:bg-red-500 text-white px-10 py-2 rounded-lg font-semibold transition"
-            >
-              Register
-            </button>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white/40 backdrop-blur-md border border-white/60 rounded-2xl shadow-xl p-8 my-8">
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-gray-800">Register for CleanStreet</h1>
           </div>
 
-          <p className="text-center text-red-400 mt-4 font-medium cursor-pointer hover:underline">
-            Already have an account? Login
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm font-medium px-4 py-3 rounded-xl mb-5">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <form className="space-y-4" onSubmit={handleRegister}>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input name="name" type="text" required value={formData.name} onChange={handleChange} className="w-full pl-10 pr-4 py-2 border border-white/60 bg-white/60 rounded-lg focus:ring-2 focus:ring-teal-400 outline-none" placeholder="Enter your name" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input name="email" type="email" required value={formData.email} onChange={handleChange} className="w-full pl-10 pr-4 py-2 border border-white/60 bg-white/60 rounded-lg focus:ring-2 focus:ring-teal-400 outline-none" placeholder="Enter your email" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input name="password" type="password" required value={formData.password} onChange={handleChange} className="w-full pl-10 pr-4 py-2 border border-white/60 bg-white/60 rounded-lg focus:ring-2 focus:ring-teal-400 outline-none" placeholder="Min. 6 characters" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <MapPin className="absolute left-3 top-3 h-5 w-5 text-teal-500" />
+                  <input name="location" type="text" value={formData.location} onChange={handleChange} className="w-full pl-10 pr-4 py-2 border border-white/60 bg-white/60 rounded-lg focus:ring-2 focus:ring-teal-400 outline-none" placeholder="Your location" />
+                </div>
+                <button type="button" onClick={detectLocation} className="px-3 py-2 bg-white/60 hover:bg-white/80 text-teal-600 border border-white/60 rounded-lg text-xs font-semibold transition-colors">
+                  {loadingLocation ? '...' : 'Detect'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+              <div className="relative">
+                <ShieldCheck className="absolute left-3 top-3 h-5 w-5 text-teal-500" />
+                <select name="role" value={formData.role} onChange={handleChange} className="w-full pl-10 pr-4 py-2 border border-white/60 bg-white/60 rounded-lg focus:ring-2 focus:ring-teal-400 outline-none appearance-none">
+                  <option value="user">User</option>
+                  <option value="volunteer">Volunteer</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mt-6 shadow-lg shadow-red-200"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><span>Register</span><ArrowRight className="h-5 w-5" /></>}
+            </button>
+          </form>
+
+          <p className="text-center mt-6 text-gray-600">
+            Already have an account?{' '}
+            <button onClick={() => navigate('/login')} className="text-teal-600 font-semibold hover:underline">Login</button>
           </p>
         </div>
       </div>
-    </>
+
+      <Footer />
+    </div>
   );
-}
+};
+
+export default Register;
