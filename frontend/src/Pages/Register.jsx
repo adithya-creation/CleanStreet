@@ -1,176 +1,149 @@
-import { useState, useEffect } from "react";
-import bgImage from "../assets/Background.jpeg";
-import { Link, useNavigate } from "react-router-dom";
-const API_BASE_URL = "http://localhost:5000";
-export default function Register() {
-  useEffect(() => {
-    document.body.style.overflowY = "auto";
-    return () => {
-      document.body.style.overflowY = "auto";
-    };
-  }, []);
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { User, Mail, Lock, Phone, ArrowRight, MapPin, ShieldCheck } from 'lucide-react';
+
+const Register = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    name: "",
-    username: "",
-    email: "",
-    phone: "",
-    password: "",
-    role: "user",
-    location: "",
-  });
-  const [errors, setErrors] = useState({});
-  const [apiError, setApiError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
-  const validate = () => {
-    const newErrors = {};
-    if (!form.name) newErrors.name = "Full name is required";
-    if (!form.username) newErrors.username = "Username is required";
-    if (!form.email) newErrors.email = "Email is required";
-    if (!form.password) newErrors.password = "Password is required";
-    if (form.email && !/\S+@\S+\.\S+/.test(form.email)) {
-      newErrors.email = "Invalid email format";
-    }
-    if (form.phone && form.phone.length !== 10) {
-      newErrors.phone = "Phone must be exactly 10 digits";
-    }
-    if (form.password && form.password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-    return newErrors;
-  };
-  const handleSubmit = async () => {
-    setApiError("");
-    const newErrors = validate();
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) return;
-    try {
-      setIsSubmitting(true);
-      const response = await fetch(`${API_BASE_URL}/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          role: form.role,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        if (data?.errors) {
-          setErrors((prev) => ({ ...prev, ...data.errors }));
+  const [location, setLocation] = useState('');
+  const [loadingLocation, setLoadingLocation] = useState(false);
+
+  // Function to detect current location
+  const detectLocation = () => {
+    setLoadingLocation(true);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          setLoadingLocation(false);
+        },
+        (error) => {
+          console.error("Error fetching location:", error);
+          alert("Could not get location. Please type it manually.");
+          setLoadingLocation(false);
         }
-        setApiError(data?.message || "Registration failed. Please try again.");
-        return;
-      }
-      if (data.token) localStorage.setItem("token", data.token);
-      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-      navigate("/dashboard");
-    } catch (err) {
-      setApiError("Unable to connect to server. Please try again later.");
-    } finally {
-      setIsSubmitting(false);
+      );
+    } else {
+      alert("Geolocation is not supported by your browser.");
+      setLoadingLocation(false);
     }
   };
+
+  const handleRegister = (e) => {
+    e.preventDefault();
+    navigate('/login');
+  };
+
   return (
-    <>
-      <div
-        className="min-h-screen w-full flex justify-center items-start pt-15 bg-cover bg-center bg-no-repeat bg-fixed px-4"
-        style={{ backgroundImage: `url(${bgImage})` }}
-      >
-        <div className="bg-white/90 backdrop-blur-md p-6 sm:p-8 rounded-2xl w-full max-w-md shadow-2xl border border-gray-200 -mt-5">
-          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-4 text-gray-800">
-            Register for CleanStreet
-          </h2>
-          {apiError && <p className="text-red-500 text-sm mb-3 text-center">{apiError}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Role</label>
-          <select
-            name="role"
-            onChange={handleChange}
-            className="w-full p-2 mb-3 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          >
-            <option value="user">User</option>
-            <option value="volunteer">Volunteer</option>
-            <option value="admin">Admin</option>
-          </select>
-          <label className="font-semibold block mb-1 text-gray-700">Full Name</label>
-          <input
-            name="name"
-            placeholder="Enter your full name"
-            value={form.name}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^[A-Za-z\s]*$/.test(value)) setForm({ ...form, name: value });
-            }}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          {errors.name && <p className="text-red-500 text-sm mb-2">{errors.name}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Username</label>
-          <input
-            name="username"
-            placeholder="Enter your username"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          {errors.username && <p className="text-red-500 text-sm mb-2">{errors.username}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Email</label>
-          <input
-            name="email"
-            placeholder="Enter your email"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          {errors.email && <p className="text-red-500 text-sm mb-2">{errors.email}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Phone Number (Optional)</label>
-          <input
-            name="phone"
-            placeholder="Enter phone number"
-            value={form.phone}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (/^\d*$/.test(value)) setForm({ ...form, phone: value });
-            }}
-            maxLength={10}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          {errors.phone && <p className="text-red-500 text-sm mb-2">{errors.phone}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Password</label>
-          <input
-            name="password"
-            type="password"
-            placeholder="Enter password"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          {errors.password && <p className="text-red-500 text-sm mb-2">{errors.password}</p>}
-          <label className="font-semibold block mb-1 text-gray-700">Location</label>
-          <input
-            name="location"
-            type="text"
-            placeholder="Enter your location"
-            onChange={handleChange}
-            className="w-full p-2 mb-1 border rounded-lg focus:ring-2 focus:ring-teal-400 outline-none"
-          />
-          <div className="flex justify-center mt-4">
-            <button
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="bg-red-400 hover:bg-red-400 disabled:bg-red-300 text-white px-10 py-2 rounded-lg font-bold transition shadow-md uppercase"
-            >
-              {isSubmitting ? "Registering..." : "Register"}
-            </button>
-          </div>
-          <Link to="/login">
-            <p className="text-center text-red-400 mt-4 font-bold cursor-pointer hover:underline">
-              Already have an account? Login
-            </p>
-          </Link>
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 my-8">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-emerald-800">Register for CleanStreet</h1>
         </div>
+        
+        <form className="space-y-4" onSubmit={handleRegister}>
+          {/* Full Name */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+            <div className="relative">
+              <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input type="text" required className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter your name" />
+            </div>
+          </div>
+
+          {/* Username */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Username</label>
+            <div className="relative">
+            <User className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+            <input type="text" required className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter your username" />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input type="email" required className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter your email" />
+            </div>
+          </div>
+
+          {/* Phone Number */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input type="tel" required className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="Enter your phone number" />
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Location</label>
+            <div className="relative flex gap-2">
+              <div className="relative flex-1">
+                <MapPin className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+                <input 
+                  type="text" 
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" 
+                  placeholder="Location" 
+                />
+              </div>
+              <button 
+                type="button"
+                onClick={detectLocation}
+                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-semibold transition-colors"
+              >
+                {loadingLocation ? '...' : 'Detect'}
+              </button>
+            </div>
+          </div>
+
+          {/* Role Dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Role</label>
+            <div className="relative">
+              <ShieldCheck className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <select className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none bg-white appearance-none">
+                <option value="user">User</option>
+                <option value="volunteer">Volunteer</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-5 w-5 text-slate-400" />
+              <input type="password" required className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="••••••••" />
+            </div>
+          </div>
+
+          <button 
+            type="submit"
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 mt-6"
+          >
+            Register <ArrowRight className="h-5 w-5" />
+          </button>
+        </form>
+        
+        <p className="text-center mt-6 text-slate-600">
+          Already have an account?{' '}
+          <button 
+            onClick={() => navigate('/login')} 
+            className="text-emerald-600 font-semibold hover:underline"
+          >
+            Login
+          </button>
+        </p>
       </div>
-    </>
+    </div>
   );
-}
+};
+
+export default Register;
