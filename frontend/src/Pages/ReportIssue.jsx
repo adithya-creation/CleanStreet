@@ -82,14 +82,22 @@ const ReportIssue = () => {
     setError('');
     try {
       await createComplaint({
-        title: formData.title,
-        description: formData.description,
-        address: formData.address,
-        locationCoords: {
-          type: 'Point',
-          coordinates: [position[1], position[0]], // [lng, lat]
-        },
-      });
+  title: formData.title,
+  description: formData.description,
+
+  type: formData.type,
+  priority: formData.priority,
+  nearbyLandmark: formData.landmark,
+
+  address: formData.address,
+
+  location: {
+    lat: position[0],
+    lng: position[1],
+  },
+
+  image: selectedImage || '',
+});
       setSuccess(true);
       setTimeout(() => navigate('/complaints'), 1500);
     } catch (err) {

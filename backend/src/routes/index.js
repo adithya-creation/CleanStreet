@@ -187,21 +187,44 @@ router.get('/complaints/mine', auth, async (req, res) => {
 // ─── Complaints: Create ───────────────────────────────────────
 router.post('/complaints', auth, async (req, res) => {
   try {
-    const { title, description, address, locationCoords, photo } = req.body || {};
-    if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
-    if (!description?.trim()) return res.status(400).json({ success: false, message: 'Description is required' });
+    const {
+      title,
+      description,
+      address,
+      type,
+      priority,
+      nearbyLandmark,
+      location,
+      image,
+    } = req.body || {};
+
+    if (!title?.trim())
+      return res.status(400).json({ success: false, message: 'Title is required' });
+
+    if (!description?.trim())
+      return res.status(400).json({ success: false, message: 'Description is required' });
 
     const complaint = await Complaint.create({
       user: req.user.id,
       title: title.trim(),
       description: description.trim(),
       address: address?.trim(),
-      photo: photo?.trim(),
-      locationCoords: locationCoords || undefined,
+
+      type,
+      priority,
+      nearbyLandmark,
+
+      location, // { lat, lng }
+      image,
+
       status: 'received',
     });
 
-    return res.status(201).json({ success: true, message: 'Complaint created', complaint });
+    return res.status(201).json({
+      success: true,
+      message: 'Complaint created',
+      complaint,
+    });
   } catch (error) {
     console.error('Create complaint error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });

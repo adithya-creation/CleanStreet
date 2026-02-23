@@ -9,6 +9,7 @@ import EditProfile from './Pages/Profile';
 import ViewComplaints from './Pages/ViewComplaints';
 import { isAuthenticated } from './services/authService';
 
+
 // Redirects to /login if no JWT token is present
 const ProtectedRoute = ({ children }) => {
   return isAuthenticated() ? children : <Navigate to="/login" replace />;
