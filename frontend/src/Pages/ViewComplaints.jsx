@@ -1,15 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardX, MapPin, Clock, ChevronRight, Plus, Loader2 } from 'lucide-react';
+import { ClipboardX, MapPin, Clock, Plus, Loader2 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
 import { getComplaints } from '../services/complaintService';
 
 const statusStyles = {
-    received: { bg: 'bg-blue-50', text: 'text-blue-600', label: 'Received' },
-    in_review: { bg: 'bg-amber-50', text: 'text-amber-600', label: 'In Review' },
-    resolved: { bg: 'bg-teal-50', text: 'text-teal-600', label: 'Resolved' },
+    received: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Received' },
+    in_review: { bg: 'bg-amber-100', text: 'text-amber-700', label: 'In Review' },
+    resolved: { bg: 'bg-teal-100', text: 'text-teal-700', label: 'Resolved' },
 };
+
+// Soft gradient placeholders when no photo is available
+const placeholderGradients = [
+    'from-rose-200 to-orange-200',
+    'from-teal-200 to-cyan-200',
+    'from-violet-200 to-indigo-200',
+    'from-amber-200 to-yellow-100',
+    'from-green-200 to-emerald-200',
+];
 
 const ViewComplaints = () => {
     const navigate = useNavigate();
@@ -39,11 +48,14 @@ const ViewComplaints = () => {
     const formatDate = (iso) =>
         new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
+    const getInitials = (name = '') =>
+        name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
             <NavBar />
 
-            <div className="flex-1 max-w-5xl w-full mx-auto p-6 pt-10">
+            <div className="flex-1 max-w-7xl w-full mx-auto p-6 pt-10">
 
                 {/* Header */}
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -62,7 +74,7 @@ const ViewComplaints = () => {
                 </div>
 
                 {/* Filter tabs */}
-                <div className="flex gap-2 mb-6 flex-wrap">
+                <div className="flex gap-2 mb-8 flex-wrap">
                     {[
                         { key: 'all', label: 'All' },
                         { key: 'received', label: 'Received' },
@@ -73,8 +85,8 @@ const ViewComplaints = () => {
                             key={key}
                             onClick={() => setFilter(key)}
                             className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all border ${filter === key
-                                    ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-200'
-                                    : 'bg-white/50 text-gray-500 border-white/60 hover:border-teal-300 hover:text-teal-600'
+                                ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-200'
+                                : 'bg-white/50 text-gray-500 border-white/60 hover:border-teal-300 hover:text-teal-600'
                                 }`}
                         >
                             {label}
@@ -113,39 +125,71 @@ const ViewComplaints = () => {
                         )}
                     </div>
                 ) : (
-                    /* Complaints list */
-                    <div className="space-y-3">
-                        {filtered.map((c) => {
-                            const s = statusStyles[c.status] || { bg: 'bg-gray-50', text: 'text-gray-500', label: c.status };
+                    /* ── Tile grid ── */
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filtered.map((c, idx) => {
+                            const s = statusStyles[c.status] || { bg: 'bg-gray-100', text: 'text-gray-600', label: c.status };
+                            const gradient = placeholderGradients[idx % placeholderGradients.length];
                             return (
                                 <div
                                     key={c._id}
-                                    className="bg-white/40 backdrop-blur-md rounded-2xl border border-white/60 shadow-sm px-6 py-5 flex items-center justify-between gap-4 hover:border-teal-200 hover:shadow-md transition-all group cursor-pointer"
+                                    className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
                                 >
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-3 mb-1 flex-wrap">
-                                            <h3 className="font-bold text-gray-800 text-base truncate">{c.title}</h3>
-                                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-                                                {s.label}
-                                            </span>
-                                        </div>
-                                        <div className="flex items-center gap-4 text-xs text-gray-400 flex-wrap">
-                                            {c.address && (
-                                                <span className="flex items-center gap-1">
-                                                    <MapPin className="h-3 w-3" /> {c.address}
-                                                </span>
-                                            )}
-                                            {c.user?.name && (
-                                                <span className="flex items-center gap-1">
-                                                    <span>By</span> <span className="font-semibold text-gray-500">{c.user.name}</span>
-                                                </span>
-                                            )}
-                                            <span className="flex items-center gap-1">
-                                                <Clock className="h-3 w-3" /> {formatDate(c.createdAt)}
+                                    {/* ── Photo / placeholder ── */}
+                                    <div className="relative h-44 overflow-hidden shrink-0">
+                                        {c.photo ? (
+                                            <img
+                                                src={c.photo}
+                                                alt={c.title}
+                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            />
+                                        ) : (
+                                            <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                                                <MapPin className="h-10 w-10 text-white/50" />
+                                            </div>
+                                        )}
+
+                                        {/* Status badge — top left */}
+                                        <span className={`absolute top-3 left-3 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm ${s.bg} ${s.text}`}>
+                                            {s.label}
+                                        </span>
+
+                                        {/* User pill — top right */}
+                                        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full pl-1 pr-2.5 py-1 shadow-sm">
+                                            <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center text-white text-[8px] font-black shrink-0">
+                                                {getInitials(c.user?.name)}
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-700 leading-none max-w-[80px] truncate">
+                                                {c.user?.name || 'Unknown'}
                                             </span>
                                         </div>
                                     </div>
-                                    <ChevronRight className="h-5 w-5 text-gray-300 group-hover:text-teal-400 transition-colors shrink-0" />
+
+                                    {/* ── Card body ── */}
+                                    <div className="p-5 flex flex-col flex-1">
+                                        <h3 className="font-black text-gray-800 text-base mb-1 line-clamp-1 leading-snug">
+                                            {c.title}
+                                        </h3>
+                                        {c.description && (
+                                            <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
+                                                {c.description}
+                                            </p>
+                                        )}
+
+                                        {/* Footer row */}
+                                        <div className="mt-auto flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100/80">
+                                            {c.address ? (
+                                                <span className="flex items-center gap-1 truncate max-w-[65%]">
+                                                    <MapPin className="h-3 w-3 shrink-0 text-teal-400" />
+                                                    <span className="truncate">{c.address}</span>
+                                                </span>
+                                            ) : <span />}
+                                            <span className="flex items-center gap-1 shrink-0 ml-2">
+                                                <Clock className="h-3 w-3" />
+                                                {formatDate(c.createdAt)}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })}

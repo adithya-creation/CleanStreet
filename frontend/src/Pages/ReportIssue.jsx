@@ -24,6 +24,7 @@ const ReportIssue = () => {
   const fileInputRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState(''); // 'uploading' | 'saving' | ''
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -32,7 +33,8 @@ const ReportIssue = () => {
   });
 
   const [position, setPosition] = useState([20.5937, 78.9629]);
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);   // preview URL
+  const [imageFile, setImageFile] = useState(null);           // actual File object
   const [loadingAddress, setLoadingAddress] = useState(false);
 
   const getAddress = async (lat, lng) => {
@@ -67,9 +69,27 @@ const ReportIssue = () => {
   };
 
   const handleImageChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedImage(URL.createObjectURL(event.target.files[0]));
+    const file = event.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setSelectedImage(URL.createObjectURL(file));
     }
+  };
+
+  const uploadImageToCloudinary = async (file) => {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', uploadPreset);
+    formData.append('folder', 'cleanstreet/complaints');
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      { method: 'POST', body: formData }
+    );
+    if (!res.ok) throw new Error('Image upload failed');
+    const data = await res.json();
+    return data.secure_url;
   };
 
   const handleSubmit = async (e) => {
@@ -81,6 +101,15 @@ const ReportIssue = () => {
     setSubmitting(true);
     setError('');
     try {
+      // Step 1: upload photo to Cloudinary (if any)
+      let photoUrl = '';
+      if (imageFile) {
+        setSubmitStatus('uploading');
+        photoUrl = await uploadImageToCloudinary(imageFile);
+      }
+
+      // Step 2: save complaint with photo URL
+      setSubmitStatus('saving');
       await createComplaint({
         title: formData.title,
         description: formData.description,
@@ -89,13 +118,21 @@ const ReportIssue = () => {
           type: 'Point',
           coordinates: [position[1], position[0]], // [lng, lat]
         },
+        photo: photoUrl || undefined,
+        type: formData.type || undefined,
+        priority: formData.priority || undefined,
       });
       setSuccess(true);
       setTimeout(() => navigate('/complaints'), 1500);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to submit. Please try again.');
+      setError(
+        err.message === 'Image upload failed'
+          ? 'Photo upload failed. Please try a smaller image or check your connection.'
+          : (err.response?.data?.message || 'Failed to submit. Please try again.')
+      );
     } finally {
       setSubmitting(false);
+      setSubmitStatus('');
     }
   };
 
@@ -183,7 +220,7 @@ const ReportIssue = () => {
                 {selectedImage ? (
                   <div className="relative inline-block">
                     <img src={selectedImage} alt="Preview" className="h-32 rounded-lg shadow-md" />
-                    <button onClick={(e) => { e.stopPropagation(); setSelectedImage(null); }} className="absolute -top-2 -right-2 bg-[#F87171] text-white p-1 rounded-full"><X className="h-3 w-3" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); setSelectedImage(null); setImageFile(null); }} className="absolute -top-2 -right-2 bg-[#F87171] text-white p-1 rounded-full"><X className="h-3 w-3" /></button>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center">
@@ -199,7 +236,9 @@ const ReportIssue = () => {
                 className="w-full bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
               >
                 {submitting
-                  ? <><Loader2 className="h-4 w-4 animate-spin" /> Submitting...</>
+                  ? submitStatus === 'uploading'
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading photo...</>
+                    : <><Loader2 className="h-4 w-4 animate-spin" /> Saving report...</>
                   : <><Send className="h-4 w-4" /> SUBMIT REPORT</>}
               </button>
             </div>
