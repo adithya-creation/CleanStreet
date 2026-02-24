@@ -187,7 +187,7 @@ router.get('/complaints/mine', auth, async (req, res) => {
 // ─── Complaints: Create ───────────────────────────────────────
 router.post('/complaints', auth, async (req, res) => {
   try {
-    const { title, description, address, locationCoords, photo } = req.body || {};
+    const { title, description, address, locationCoords, photo, type, priority } = req.body || {};
     if (!title?.trim()) return res.status(400).json({ success: false, message: 'Title is required' });
     if (!description?.trim()) return res.status(400).json({ success: false, message: 'Description is required' });
 
@@ -199,6 +199,8 @@ router.post('/complaints', auth, async (req, res) => {
       photo: photo?.trim(),
       locationCoords: locationCoords || undefined,
       status: 'received',
+      priority: priority,
+      type: type,
     });
 
     return res.status(201).json({ success: true, message: 'Complaint created', complaint });

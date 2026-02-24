@@ -5,6 +5,18 @@ const ComplaintSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
+    type: {type: String, enum: ["Waste / Garbage",
+      "Road Damage",
+      "Water Leakage",
+      "Street Light Issue",
+      "Pothole", 
+      "Others"],
+      default: 'N/A',
+      required: true,},
+    priority: {type: String,
+      enum: ['Low', 'Medium', 'High'],
+      default: 'Medium',
+      required: true,},
     photo: { type: String },
     locationCoords: {
       type: {

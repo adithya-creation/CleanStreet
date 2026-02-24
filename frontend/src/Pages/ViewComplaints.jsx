@@ -245,7 +245,7 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
               <strong>Status:</strong>{' '}
               <span className="capitalize">{selectedComplaint.status}</span>
             </p>
-            <p><strong>Priority:</strong> {selectedComplaint.priority || 'Normal'}</p>
+            <p><strong>Priority:</strong> {selectedComplaint.priority || 'Medium'}</p>
             <p><strong>Address:</strong> {selectedComplaint.address}</p>
             <p><strong>Reported On:</strong> {formatDate(selectedComplaint.createdAt)}</p>
           </div>

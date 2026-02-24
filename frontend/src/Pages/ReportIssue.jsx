@@ -176,18 +176,21 @@ const ReportIssue = () => {
                   <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Issue Type</label>
                   <select name="type" value={formData.type} onChange={handleInputChange} className="w-full px-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none">
                     <option value="">-- Select --</option>
-                    <option value="waste">Waste / Garbage</option>
-                    <option value="pothole">Pothole</option>
-                    <option value="water">Water Leakage</option>
+                    <option value="Waste / Garbage">Waste / Garbage</option>
+                    <option value="Pothole">Pothole</option>
+                    <option value="Water Leakage">Water Leakage</option>
+                    <option value="Road Damage">Road Damage</option>
+                    <option value="Street Light Issue">Street Light Issue</option>
+                    <option value="Others">Others</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest">Priority</label>
                   <select name="priority" value={formData.priority} onChange={handleInputChange} className="w-full px-4 py-3 border border-white/60 bg-white/60 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none">
                     <option value="">-- Select --</option>
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
                   </select>
                 </div>
               </div>
