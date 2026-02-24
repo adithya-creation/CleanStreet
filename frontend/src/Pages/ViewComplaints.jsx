@@ -11,10 +11,7 @@ const statusStyles = {
     resolved: { bg: 'bg-teal-100', text: 'text-teal-700', label: 'Resolved' },
 };
 
-<<<<<<< HEAD
-=======
 // Soft gradient placeholders when no photo is available
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
 const placeholderGradients = [
     'from-rose-200 to-orange-200',
     'from-teal-200 to-cyan-200',
@@ -29,10 +26,7 @@ const ViewComplaints = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
-<<<<<<< HEAD
     const [selectedComplaint, setSelectedComplaint] = useState(null);
-=======
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
 
     useEffect(() => {
         const load = async () => {
@@ -70,11 +64,8 @@ const ViewComplaints = () => {
                     </div>
                     <button
                         onClick={() => navigate('/report')}
-<<<<<<< HEAD
                         className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.02] active:scale-95"
-=======
-                        className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto"
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
+                    >
                     >
                         <Plus className="h-4 w-4" /> New Report
                     </button>
@@ -84,16 +75,6 @@ const ViewComplaints = () => {
                 {/* Filters */}
                 <div className="flex gap-2 mb-8 flex-wrap">
                     {['all', 'received', 'in_review', 'resolved'].map(key => (
-=======
-                {/* Filter tabs */}
-                <div className="flex gap-2 mb-8 flex-wrap">
-                    {[
-                        { key: 'all', label: 'All' },
-                        { key: 'received', label: 'Received' },
-                        { key: 'in_review', label: 'In Review' },
-                        { key: 'resolved', label: 'Resolved' },
-                    ].map(({ key, label }) => (
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
                         <button
                             key={key}
                             onClick={() => setFilter(key)}
@@ -102,11 +83,7 @@ const ViewComplaints = () => {
                                 : 'bg-white/50 text-gray-500 border-white/60 hover:border-teal-300 hover:text-teal-600'
                                 }`}
                         >
-<<<<<<< HEAD
                             {key === 'all' ? 'All' : key.replace('_', ' ')}
-=======
-                            {label}
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
                         </button>
                     ))}
                 </div>
@@ -117,7 +94,6 @@ const ViewComplaints = () => {
                         <Loader2 className="h-10 w-10 text-teal-400 animate-spin" />
                     </div>
                 ) : error ? (
-<<<<<<< HEAD
                     <div className="bg-red-50 border border-red-200 text-red-600 px-6 py-4 rounded-2xl">
                         {error}
                     </div>
@@ -182,13 +158,11 @@ const ViewComplaints = () => {
                                     <div className="relative h-44 overflow-hidden shrink-0">
                                         {c.photo ? (
                                             <img
-                                                src={c.photo}
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
+                                                src={`http://localhost:5000/uploads/${c.photo}`}
                                                 alt={c.title}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                             />
                                         ) : (
-<<<<<<< HEAD
                                             <div className={`w-full h-full bg-gradient-to-br ${gradient}`} />
                                         )}
                                         <span className={`absolute top-3 left-3 text-[10px] font-black px-3 py-1 rounded-full ${s.bg} ${s.text}`}>
@@ -210,49 +184,6 @@ const ViewComplaints = () => {
                                                 {c.address}
                                             </span>
                                             <span className="flex items-center gap-1">
-=======
-                                            <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
-                                                <MapPin className="h-10 w-10 text-white/50" />
-                                            </div>
-                                        )}
-
-                                        {/* Status badge — top left */}
-                                        <span className={`absolute top-3 left-3 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm ${s.bg} ${s.text}`}>
-                                            {s.label}
-                                        </span>
-
-                                        {/* User pill — top right */}
-                                        <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/80 backdrop-blur-sm rounded-full pl-1 pr-2.5 py-1 shadow-sm">
-                                            <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center text-white text-[8px] font-black shrink-0">
-                                                {getInitials(c.user?.name)}
-                                            </div>
-                                            <span className="text-[10px] font-bold text-gray-700 leading-none max-w-[80px] truncate">
-                                                {c.user?.name || 'Unknown'}
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    {/* ── Card body ── */}
-                                    <div className="p-5 flex flex-col flex-1">
-                                        <h3 className="font-black text-gray-800 text-base mb-1 line-clamp-1 leading-snug">
-                                            {c.title}
-                                        </h3>
-                                        {c.description && (
-                                            <p className="text-gray-500 text-sm leading-relaxed line-clamp-2 mb-3">
-                                                {c.description}
-                                            </p>
-                                        )}
-
-                                        {/* Footer row */}
-                                        <div className="mt-auto flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100/80">
-                                            {c.address ? (
-                                                <span className="flex items-center gap-1 truncate max-w-[65%]">
-                                                    <MapPin className="h-3 w-3 shrink-0 text-teal-400" />
-                                                    <span className="truncate">{c.address}</span>
-                                                </span>
-                                            ) : <span />}
-                                            <span className="flex items-center gap-1 shrink-0 ml-2">
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
                                                 <Clock className="h-3 w-3" />
                                                 {formatDate(c.createdAt)}
                                             </span>
@@ -265,7 +196,6 @@ const ViewComplaints = () => {
                 )}
             </div>
 
-<<<<<<< HEAD
             {/* Modal */}
             {selectedComplaint && (
                 <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -299,15 +229,9 @@ const ViewComplaints = () => {
                 </div>
             )}
 
-=======
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
             <Footer />
         </div>
     );
 };
 
-<<<<<<< HEAD
 export default ViewComplaints;
-=======
-export default ViewComplaints;
->>>>>>> 1d54658a34e473cfedc2d34b598c4428775e4fef
