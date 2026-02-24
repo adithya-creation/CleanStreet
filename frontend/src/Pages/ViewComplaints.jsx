@@ -26,6 +26,7 @@ const ViewComplaints = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [filter, setFilter] = useState('all');
+    const [selectedComplaint, setSelectedComplaint] = useState(null);
 
     useEffect(() => {
         const load = async () => {
@@ -50,6 +51,10 @@ const ViewComplaints = () => {
 
     const getInitials = (name = '') =>
         name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+
+    const lat = selectedComplaint?.locationCoords?.coordinates?.[1];
+const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
+
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
@@ -131,10 +136,8 @@ const ViewComplaints = () => {
                             const s = statusStyles[c.status] || { bg: 'bg-gray-100', text: 'text-gray-600', label: c.status };
                             const gradient = placeholderGradients[idx % placeholderGradients.length];
                             return (
-                                <div
-                                    key={c._id}
-                                    className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
-                                >
+                                 <div key={c._id} onClick={() => setSelectedComplaint(c)} className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
+  >
                                     {/* ── Photo / placeholder ── */}
                                     <div className="relative h-44 overflow-hidden shrink-0">
                                         {c.photo ? (
@@ -196,6 +199,82 @@ const ViewComplaints = () => {
                     </div>
                 )}
             </div>
+            {selectedComplaint && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="bg-white rounded-3xl shadow-xl w-[95%] max-w-5xl max-h-[90vh] overflow-y-auto relative">
+      
+
+      {/* Close button */}
+      <button
+        onClick={() => setSelectedComplaint(null)}
+        className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
+      >
+        ✕
+      </button>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+
+        {/* LEFT — Image */}
+        <div className="rounded-2xl overflow-hidden border">
+          {selectedComplaint.photo ? (
+            <img
+              src={selectedComplaint.photo}
+              alt={selectedComplaint.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="h-64 flex items-center justify-center bg-gray-100 text-gray-400">
+              No Image
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — Details */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-black text-gray-800">
+            {selectedComplaint.title}
+          </h2>
+
+          <p className="text-gray-600">
+            {selectedComplaint.description}
+          </p>
+
+          <div className="space-y-2 text-sm">
+            <p><strong>Type:</strong> {selectedComplaint.type || 'N/A'}</p>
+            <p>
+              <strong>Status:</strong>{' '}
+              <span className="capitalize">{selectedComplaint.status}</span>
+            </p>
+            <p><strong>Priority:</strong> {selectedComplaint.priority || 'Normal'}</p>
+            <p><strong>Address:</strong> {selectedComplaint.address}</p>
+            <p><strong>Reported On:</strong> {formatDate(selectedComplaint.createdAt)}</p>
+          </div>
+
+          {/* Map placeholder */}
+         <div className="h-48 rounded-xl overflow-hidden border">
+  {lat && lng ? (
+   <a
+  href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
+  className="block w-full h-full"
+>
+      <iframe
+        title="map"
+        className="w-full h-full pointer-events-none"
+        loading="lazy"
+        src={`https://www.openstreetmap.org/export/embed.html?marker=${lat},${lng}&zoom=16`}
+      />
+    </a>
+  ) : (
+    <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+      Location not available
+    </div>
+  )}
+</div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
             <Footer />
         </div>
