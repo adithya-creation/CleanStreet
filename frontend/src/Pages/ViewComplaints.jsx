@@ -48,6 +48,7 @@ const ViewComplaints = () => {
 
     const formatDate = (iso) =>
         new Date(iso).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
             <NavBar />
@@ -66,12 +67,10 @@ const ViewComplaints = () => {
                         onClick={() => navigate('/report')}
                         className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.02] active:scale-95"
                     >
-                    >
                         <Plus className="h-4 w-4" /> New Report
                     </button>
                 </div>
 
-<<<<<<< HEAD
                 {/* Filters */}
                 <div className="flex gap-2 mb-8 flex-wrap">
                     {['all', 'received', 'in_review', 'resolved'].map(key => (
@@ -115,47 +114,6 @@ const ViewComplaints = () => {
                                     className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
                                 >
                                     <div className="relative h-44 overflow-hidden">
-                                        {c.photo ? (
-                                            <img
-                                                src={`http://localhost:5000/uploads/${c.photo}`}
-=======
-                    <div className="bg-red-50 border border-red-200 text-red-600 font-medium text-sm px-6 py-4 rounded-2xl">
-                        {error}
-                    </div>
-                ) : filtered.length === 0 ? (
-                    /* Empty state */
-                    <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm p-16 flex flex-col items-center text-center">
-                        <div className="w-20 h-20 bg-teal-50 rounded-3xl flex items-center justify-center mb-6">
-                            <ClipboardX className="h-10 w-10 text-teal-300" />
-                        </div>
-                        <h3 className="text-2xl font-black text-gray-800 mb-2">No complaints found</h3>
-                        <p className="text-gray-400 mb-8 max-w-sm">
-                            {filter === 'all'
-                                ? 'No complaints have been reported yet. Be the first to make a difference!'
-                                : `No complaints with status "${filter.replace('_', ' ')}".`}
-                        </p>
-                        {filter === 'all' && (
-                            <button
-                                onClick={() => navigate('/report')}
-                                className="bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-8 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.03]"
-                            >
-                                Report an Issue
-                            </button>
-                        )}
-                    </div>
-                ) : (
-                    /* ── Tile grid ── */
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filtered.map((c, idx) => {
-                            const s = statusStyles[c.status] || { bg: 'bg-gray-100', text: 'text-gray-600', label: c.status };
-                            const gradient = placeholderGradients[idx % placeholderGradients.length];
-                            return (
-                                <div
-                                    key={c._id}
-                                    className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
-                                >
-                                    {/* ── Photo / placeholder ── */}
-                                    <div className="relative h-44 overflow-hidden shrink-0">
                                         {c.photo ? (
                                             <img
                                                 src={`http://localhost:5000/uploads/${c.photo}`}
