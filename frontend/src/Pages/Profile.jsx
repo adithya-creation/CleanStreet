@@ -206,7 +206,7 @@ const Profile = () => {
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-white/40">
                       <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-white/50 transition-colors">Cancel</button>
-                      <button type="submit" disabled={saving} className="px-8 py-3 bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center gap-2">
+                        <button type="submit" disabled={saving} className="px-8 py-3 bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center gap-2">
                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         Save Changes
                       </button>

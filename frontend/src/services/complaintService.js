@@ -29,3 +29,15 @@ export const updateComplaintStatus = async (id, status) => {
     const res = await api.patch(`/complaints/${id}/status`, { status });
     return res.data;
 };
+
+// Delete complaint
+export const deleteComplaint = async (id) => {
+  const res = await api.delete(`/complaints/${id}`);
+  return res.data;
+};
+
+// Edit complaint
+export const updateComplaint = async (id, data) => {
+  const res = await api.put(`/complaints/${id}`, data);
+  return res.data;
+};
