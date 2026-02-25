@@ -236,8 +236,7 @@ const ReportIssue = () => {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-teal-500 hover:bg-teal-600 disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-teal-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
-              >
+                className="w-full bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white font-black py-4 rounded-2xl shadow-lg shadow-red-200 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
                 {submitting
                   ? submitStatus === 'uploading'
                     ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading photo...</>
