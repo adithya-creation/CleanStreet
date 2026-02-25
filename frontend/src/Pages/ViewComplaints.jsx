@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardX, MapPin, Clock, Plus, Loader2 } from 'lucide-react';
+import { ClipboardX, MapPin, Clock, Plus, Loader2, ThumbsUp, ThumbsDown } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
 import { getComplaints, deleteComplaint, updateComplaint } from '../services/complaintService';
@@ -75,8 +75,42 @@ const handleEdit = (complaint) => {
         name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
 
     const lat = selectedComplaint?.locationCoords?.coordinates?.[1];
-const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
+    const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
 
+    const handleReaction = (id, actionType) => {
+        setComplaints(prev => prev.map(c => {
+            if (c._id !== id) return c;
+
+            let newLikes = c.likes || 0;
+            let newDislikes = c.dislikes || 0;
+            let newUserAction = c.userAction;
+
+            if (actionType === 'like') {
+                if (newUserAction === 'like') {
+                    newLikes -= 1;
+                    newUserAction = null;
+                } else {
+                    newLikes += 1;
+                    if (newUserAction === 'dislike') newDislikes -= 1; // Remove previous dislike
+                    newUserAction = 'like';
+                }
+            } else if (actionType === 'dislike') {
+                if (newUserAction === 'dislike') {
+                    newDislikes -= 1;
+                    newUserAction = null;
+                } else {
+                    newDislikes += 1;
+                    if (newUserAction === 'like') newLikes -= 1;
+                    newUserAction = 'dislike';
+                }
+            }
+
+            return { ...c, likes: newLikes, dislikes: newDislikes, userAction: newUserAction };
+        }));
+
+        // API Call would go here: 
+        // updateReactionOnServer(id, actionType);
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col">
@@ -94,8 +128,7 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                     </div>
                     <button
                         onClick={() => navigate('/report')}
-                        className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-teal-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto"
-                    >
+                        className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto">
                         <Plus className="h-4 w-4" /> New Report
                     </button>
                 </div>
@@ -157,9 +190,11 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                         {filtered.map((c, idx) => {
                             const s = statusStyles[c.status] || { bg: 'bg-gray-100', text: 'text-gray-600', label: c.status };
                             const gradient = placeholderGradients[idx % placeholderGradients.length];
+                            const isLiked = c.userAction === 'like';
+                            const isDisliked = c.userAction === 'dislike';
                             return (
-                                 <div key={c._id} onClick={() => setSelectedComplaint(c)} className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
-  >
+                                <div key={c._id} onClick={() => setSelectedComplaint(c)} className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/70 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-200 overflow-hidden cursor-pointer group flex flex-col"
+                                >
                                     {/* ── Photo / placeholder ── */}
                                     <div className="relative h-44 overflow-hidden shrink-0">
                                         {c.photo ? (
@@ -200,6 +235,28 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                                                 {c.description}
                                             </p>
                                         )}
+                                        {/* Reaction Buttons */}
+                                        <div className="flex items-center gap-6 mb-4">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleReaction(c._id, 'like'); }}
+                                                className="flex items-center gap-2 group/btn transition-transform active:scale-90"
+                                            >
+                                                <div className={`p-2 rounded-full transition-all ${isLiked ? 'bg-teal-100' : 'group-hover/btn:bg-gray-100'}`}>
+                                                    <ThumbsUp className={`w-5 h-5 transition-colors ${isLiked ? 'text-teal-600 fill-teal-600' : 'text-gray-400 group-hover/btn:text-gray-600'}`} />
+                                                </div>
+                                                <span className={`text-sm font-black transition-colors ${isLiked ? 'text-teal-700' : 'text-gray-500'}`}>{c.likes || 0}</span>
+                                            </button>
+
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleReaction(c._id, 'dislike'); }}
+                                                className="flex items-center gap-2 group/btn transition-transform active:scale-90"
+                                            >
+                                                <div className={`p-2 rounded-full transition-all ${isDisliked ? 'bg-red-100' : 'group-hover/btn:bg-gray-100'}`}>
+                                                    <ThumbsDown className={`w-5 h-5 transition-colors ${isDisliked ? 'text-red-600 fill-red-600' : 'text-gray-400 group-hover/btn:text-gray-600'}`} />
+                                                </div>
+                                                <span className={`text-sm font-black transition-colors ${isDisliked ? 'text-red-700' : 'text-gray-500'}`}>{c.dislikes || 0}</span>
+                                            </button>
+                                        </div>
 
                                         {/* Footer row */}
                                         <div className="mt-auto flex items-center justify-between text-xs text-gray-400 pt-3 border-t border-gray-100/80">
@@ -281,30 +338,30 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
   </button>
 </div>
 
-      {/* Close button */}
-      <button
-        onClick={() => setSelectedComplaint(null)}
-        className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
-      >
-        ✕
-      </button>
+                        {/* Close button */}
+                        <button
+                            onClick={() => setSelectedComplaint(null)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-gray-700"
+                        >
+                            ✕
+                        </button>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
 
-        {/* LEFT — Image */}
-        <div className="rounded-2xl overflow-hidden border">
-          {selectedComplaint.photo ? (
-            <img
-              src={selectedComplaint.photo}
-              alt={selectedComplaint.title}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="h-64 flex items-center justify-center bg-gray-100 text-gray-400">
-              No Image
-            </div>
-          )}
-        </div>
+                            {/* LEFT — Image */}
+                            <div className="rounded-2xl overflow-hidden border">
+                                {selectedComplaint.photo ? (
+                                    <img
+                                        src={selectedComplaint.photo}
+                                        alt={selectedComplaint.title}
+                                        className="w-full h-full object-cover"
+                                    />
+                                ) : (
+                                    <div className="h-64 flex items-center justify-center bg-gray-100 text-gray-400">
+                                        No Image
+                                    </div>
+                                )}
+                            </div>
 
         {/* RIGHT — Details */}
         <div className="space-y-4">
