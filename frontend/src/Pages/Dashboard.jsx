@@ -65,7 +65,7 @@ const Dashboard = () => {
           <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-white/60 flex items-center justify-between">
               <h2 className="font-black text-gray-800 text-lg">Your Reports</h2>
-              <button onClick={() => navigate('/report')} className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all">
+              <button onClick={() => navigate('/report')} className="bg-teal-500 hover:bg-teal-600 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-teal-200 transition-all">
                 + New Report
               </button>
             </div>

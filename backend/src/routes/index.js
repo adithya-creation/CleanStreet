@@ -244,3 +244,55 @@ router.patch('/complaints/:id/status', auth, async (req, res) => {
 });
 
 module.exports = router;
+
+// ─── Complaints: Delete ───────────────────────────────────────
+router.delete('/complaints/:id', auth, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint)
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    // only owner or admin can delete
+    if (
+      complaint.user.toString() !== req.user.id &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    await complaint.deleteOne();
+    return res.json({ success: true, message: 'Complaint deleted' });
+  } catch (error) {
+    console.error('Delete complaint error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Complaints: Update (Edit) ────────────────────────────────
+router.put('/complaints/:id', auth, async (req, res) => {
+  try {
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint)
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    if (
+      complaint.user.toString() !== req.user.id &&
+      req.user.role !== 'admin'
+    ) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const { title, description, address, photo } = req.body;
+
+    if (title) complaint.title = title.trim();
+    if (description) complaint.description = description.trim();
+    if (address) complaint.address = address.trim();
+    if (photo) complaint.photo = photo.trim();
+
+    await complaint.save();
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('Edit complaint error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});

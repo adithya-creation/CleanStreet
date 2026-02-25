@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClipboardX, MapPin, Clock, Plus, Loader2 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
-import { getComplaints } from '../services/complaintService';
+import { getComplaints, deleteComplaint, updateComplaint } from '../services/complaintService';
 
 const statusStyles = {
     received: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'Received' },
@@ -22,6 +22,28 @@ const placeholderGradients = [
 
 const ViewComplaints = () => {
     const navigate = useNavigate();
+    const handleDelete = async (id) => {
+  if (!window.confirm('Delete this complaint?')) return;
+
+  try {
+    await deleteComplaint(id);
+    setComplaints(prev => prev.filter(c => c._id !== id));
+    setSelectedComplaint(null);
+  } catch {
+    alert('Failed to delete complaint');
+  }
+};
+const [isEditing, setIsEditing] = useState(false);
+const [editData, setEditData] = useState({
+  title: '',
+  description: '',
+  priority: '',
+  location: '',
+});
+
+const handleEdit = (complaint) => {
+  navigate(`/edit-complaint/${complaint._id}`);
+};
     const [complaints, setComplaints] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -72,7 +94,7 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                     </div>
                     <button
                         onClick={() => navigate('/report')}
-                        className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-red-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto"
+                        className="flex items-center gap-2 bg-teal-500 hover:bg-teal-600 text-white font-bold px-5 py-3 rounded-xl shadow-lg shadow-teal-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto"
                     >
                         <Plus className="h-4 w-4" /> New Report
                     </button>
@@ -192,6 +214,34 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                                                 {formatDate(c.createdAt)}
                                             </span>
                                         </div>
+                                        <div className="flex justify-end gap-3 p-3">
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      setSelectedComplaint(c);     // open modal
+      setIsEditing(true);          // enable edit
+      setEditData({
+        title: c.title,
+        description: c.description,
+        priority: c.priority,
+        location: c.location,
+      });
+    }}
+    className="text-amber-600 font-bold text-sm cursor-pointer hover:text-amber-800 hover:scale-105 transition-all"
+  >
+    Edit
+  </button>
+
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      handleDelete(c._id);
+    }}
+    className="text-red-600 font-bold text-sm cursor-pointer hover:text-red-800 hover:scale-105 transition-all"
+  >
+    Delete
+  </button>
+</div>
                                     </div>
                                 </div>
                             );
@@ -199,10 +249,37 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
                     </div>
                 )}
             </div>
-            {selectedComplaint && (
+              {selectedComplaint && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
     <div className="bg-white rounded-3xl shadow-xl w-[95%] max-w-5xl max-h-[90vh] overflow-y-auto relative">
       
+      <div className="p-1 pr-10 flex justify-end gap-2">
+  <button
+  onClick={(e) => {
+    e.stopPropagation();
+    setIsEditing(true);
+    setEditData({
+      title: selectedComplaint.title,
+      description: selectedComplaint.description,
+      priority: selectedComplaint.priority,
+      location: selectedComplaint.location,
+    });
+  }}
+  className="bg-blue-100 text-blue-700 px-4 py-2 rounded-lg font-bold cursor-pointer hover:bg-blue-200 hover:scale-105 transition-transform"
+>
+  Edit
+</button>
+
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      handleDelete(selectedComplaint._id);
+    }}
+    className="bg-red-100 text-red-700 px-3 py-1 rounded-lg font-bold cursor-pointer hover:bg-red-200 hover:scale-105 transition-transform"
+  >
+    Delete
+  </button>
+</div>
 
       {/* Close button */}
       <button
@@ -231,45 +308,195 @@ const lng = selectedComplaint?.locationCoords?.coordinates?.[0];
 
         {/* RIGHT — Details */}
         <div className="space-y-4">
-          <h2 className="text-2xl font-black text-gray-800">
-            {selectedComplaint.title}
-          </h2>
+       <div className="space-y-1">
+  <label>
+   <p><strong>Title</strong></p>
+  </label>
 
-          <p className="text-gray-600">
-            {selectedComplaint.description}
-          </p>
+  {isEditing ? (
+    <input
+      className="w-full border rounded-lg px-4 py-2 text-lg font-bold"
+      value={editData.title}
+      onChange={(e) =>
+        setEditData({ ...editData, title: e.target.value })
+      }
+    />
+  ) : (
+    <p className="text-xl font-black text-gray-800">
+      {selectedComplaint.title}
+    </p>
+  )}
+</div>
+        <div className="space-y-1">
+  <label>
+  <p><strong>Description</strong></p>
+  </label>
+
+  {isEditing ? (
+    <textarea
+      rows={4}
+      className="w-full border rounded-lg px-4 py-2"
+      value={editData.description}
+      onChange={(e) =>
+        setEditData({ ...editData, description: e.target.value })
+      }
+    />
+  ) : (
+    <p className="text-gray-700">
+      {selectedComplaint.description}
+    </p>
+  )}
+</div>
 
           <div className="space-y-2 text-sm">
-            <p><strong>Type:</strong> {selectedComplaint.type || 'N/A'}</p>
+           <div className="space-y-1">
+  <label>
+    <p><strong> Type</strong></p>
+   </label>
+
+  {isEditing ? (
+    <select
+      className="w-full border rounded-lg px-4 py-2"
+      value={editData.type}
+      onChange={(e) =>
+        setEditData({ ...editData, type: e.target.value })
+      }
+    >
+      <option value="Waste / Garbage">Waste / Garbage</option>
+      <option value="Drainage">Drainage</option>
+      <option value="Road Damage">Road Damage</option>
+      <option value="Street Light">Street Light</option>
+      <option value="Water Supply">Water Supply</option>
+      <option value="Other">Other</option>
+    </select>
+  ) : (
+    <p className="text-gray-800">
+      {selectedComplaint.type}
+    </p>
+  )}
+</div>
             <p>
               <strong>Status:</strong>{' '}
               <span className="capitalize">{selectedComplaint.status}</span>
             </p>
-            <p><strong>Priority:</strong> {selectedComplaint.priority || 'Medium'}</p>
-            <p><strong>Address:</strong> {selectedComplaint.address}</p>
+          <div className="space-y-1">
+  <label>
+    <p><strong>Priority</strong></p>
+  </label>
+
+  {isEditing ? (
+    <select
+      className="border rounded-lg px-4 py-2"
+      value={editData.priority}
+      onChange={(e) =>
+        setEditData({ ...editData, priority: e.target.value })
+      }
+    >
+      <option value="Low">Low</option>
+      <option value="Medium">Medium</option>
+      <option value="High">High</option>
+    </select>
+  ) : (
+    <p className="text-gray-800">
+      {selectedComplaint.priority}
+    </p>
+  )}
+</div>
+          <div className="space-y-1">
+  <label>
+   <p> <strong>
+    Address</strong></p>
+  </label>
+
+  {isEditing ? (
+    <input
+      className="w-full border rounded-lg px-4 py-2"
+      value={editData.address}
+      onChange={(e) =>
+        setEditData({ ...editData, address: e.target.value })
+      }
+    />
+  ) : (
+    <p className="text-gray-800">
+      {selectedComplaint.address}
+    </p>
+  )}
+</div>
             <p><strong>Reported On:</strong> {formatDate(selectedComplaint.createdAt)}</p>
           </div>
 
-          {/* Map placeholder */}
-         <div className="h-48 rounded-xl overflow-hidden border">
+        <div className="h-48 rounded-xl overflow-hidden border relative">
   {lat && lng ? (
-   <a
-  href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`}
-  className="block w-full h-full"
->
+    <>
       <iframe
         title="map"
-        className="w-full h-full pointer-events-none"
+        className="w-full h-full"
         loading="lazy"
         src={`https://www.openstreetmap.org/export/embed.html?marker=${lat},${lng}&zoom=16`}
       />
-    </a>
+      {isEditing && (
+        // Transparent overlay to capture clicks
+        <div
+          className="absolute inset-0 cursor-pointer"
+          onClick={async () => {
+            // Use reverse geocoding to fetch address
+            const response = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+            );
+            const data = await response.json();
+            setEditData({ ...editData, address: data.display_name || '' });
+          }}
+        />
+      )}
+    </>
   ) : (
     <div className="h-full flex items-center justify-center text-gray-400 text-sm">
       Location not available
     </div>
   )}
+
+  
 </div>
+{isEditing && (
+  <div className="flex gap-3 mt-4">
+    {/* SAVE */}
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        await updateComplaint(selectedComplaint._id, editData);
+
+        setComplaints((prev) =>
+          prev.map((c) =>
+            c._id === selectedComplaint._id
+              ? { ...c, ...editData }
+              : c
+          )
+        );
+
+        setSelectedComplaint((prev) => ({
+          ...prev,
+          ...editData,
+        }));
+
+        setIsEditing(false);
+      }}
+      className="bg-green-600 text-white px-5 py-2 rounded-lg font-bold"
+    >
+      Save
+    </button>
+
+    {/* CANCEL */}
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsEditing(false);
+      }}
+      className="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg font-bold"
+    >
+      Cancel
+    </button>
+  </div>
+)}
         </div>
       </div>
     </div>
