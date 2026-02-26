@@ -225,7 +225,7 @@ const ViewComplaints = () => {
           </div>
           <button
             onClick={() => navigate('/report')}
-            className="flex items-center gap-2 bg-gradient-to-r from-rose-500 to-orange-400 hover:from-rose-600 hover:to-orange-500 text-white font-bold px-5 py-3 rounded-2xl shadow-lg shadow-rose-200 transition-all hover:scale-[1.02] active:scale-95 self-start sm:self-auto text-sm"
+            className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all text-sm"
           >
             <Plus className="h-4 w-4" /> Report Issue
           </button>
