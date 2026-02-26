@@ -32,12 +32,36 @@ export const updateComplaintStatus = async (id, status) => {
 
 // Delete complaint
 export const deleteComplaint = async (id) => {
-  const res = await api.delete(`/complaints/${id}`);
-  return res.data;
+    const res = await api.delete(`/complaints/${id}`);
+    return res.data;
 };
 
 // Edit complaint
 export const updateComplaint = async (id, data) => {
-  const res = await api.put(`/complaints/${id}`, data);
-  return res.data;
+    const res = await api.put(`/complaints/${id}`, data);
+    return res.data;
+};
+
+// Vote on a complaint (upvote / downvote)
+export const voteComplaint = async (id, voteType) => {
+    const res = await api.post(`/complaints/${id}/vote`, { voteType });
+    return res.data;
+};
+
+// Get comments for a complaint
+export const getComments = async (complaintId) => {
+    const res = await api.get(`/complaints/${complaintId}/comments`);
+    return res.data;
+};
+
+// Post a new comment
+export const postComment = async (complaintId, content) => {
+    const res = await api.post(`/complaints/${complaintId}/comments`, { content });
+    return res.data;
+};
+
+// Delete a comment
+export const deleteComment = async (commentId) => {
+    const res = await api.delete(`/comments/${commentId}`);
+    return res.data;
 };

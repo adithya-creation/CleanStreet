@@ -3,6 +3,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Complaint = require('../models/Complaint');
+const Vote = require('../models/Vote');
+const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
@@ -166,7 +168,29 @@ router.get('/complaints', auth, async (req, res) => {
     const complaints = await Complaint.find()
       .populate('user', 'name email')
       .sort({ createdAt: -1 });
-    return res.json({ success: true, complaints });
+
+    // Attach vote counts + current user's vote for each complaint
+    const complaintIds = complaints.map(c => c._id);
+    const votes = await Vote.find({ complaint: { $in: complaintIds } });
+
+    const countMap = {};
+    const userVoteMap = {};
+    votes.forEach(v => {
+      const cid = v.complaint.toString();
+      if (!countMap[cid]) countMap[cid] = { upvotes: 0, downvotes: 0 };
+      if (v.voteType === 'upvote') countMap[cid].upvotes++;
+      else countMap[cid].downvotes++;
+      if (v.user.toString() === req.user.id) userVoteMap[cid] = v.voteType;
+    });
+
+    const enriched = complaints.map(c => ({
+      ...c.toObject(),
+      likes: countMap[c._id.toString()]?.upvotes || 0,
+      dislikes: countMap[c._id.toString()]?.downvotes || 0,
+      userVote: userVoteMap[c._id.toString()] || null,
+    }));
+
+    return res.json({ success: true, complaints: enriched });
   } catch (error) {
     console.error('Get complaints error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -176,8 +200,30 @@ router.get('/complaints', auth, async (req, res) => {
 // ─── Complaints: Get mine ─────────────────────────────────────
 router.get('/complaints/mine', auth, async (req, res) => {
   try {
-    const complaints = await Complaint.find({ user: req.user.id }).sort({ createdAt: -1 });
-    return res.json({ success: true, complaints });
+    const complaints = await Complaint.find({ user: req.user.id })
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 });
+
+    const complaintIds = complaints.map(c => c._id);
+    const votes = await Vote.find({ complaint: { $in: complaintIds } });
+
+    const countMap = {};
+    votes.forEach(v => {
+      const cid = v.complaint.toString();
+      if (!countMap[cid]) countMap[cid] = { upvotes: 0, downvotes: 0 };
+      if (v.voteType === 'upvote') countMap[cid].upvotes++;
+      else countMap[cid].downvotes++;
+    });
+
+    const enriched = complaints.map(c => ({
+      ...c.toObject(),
+      likes: countMap[c._id.toString()]?.upvotes || 0,
+      dislikes: countMap[c._id.toString()]?.downvotes || 0,
+      // For own complaints, include user's own vote
+      userVote: votes.find(v => v.complaint.toString() === c._id.toString() && v.user.toString() === req.user.id)?.voteType || null,
+    }));
+
+    return res.json({ success: true, complaints: enriched });
   } catch (error) {
     console.error('Get my complaints error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
@@ -293,6 +339,97 @@ router.put('/complaints/:id', auth, async (req, res) => {
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('Edit complaint error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Complaints: Vote (upvote / downvote with toggle) ─────────
+router.post('/complaints/:id/vote', auth, async (req, res) => {
+  try {
+    const { voteType } = req.body || {};
+    if (!['upvote', 'downvote'].includes(voteType))
+      return res.status(400).json({ success: false, message: 'Invalid voteType' });
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    const existing = await Vote.findOne({ user: req.user.id, complaint: req.params.id });
+
+    if (existing) {
+      if (existing.voteType === voteType) {
+        // Toggle off (remove vote)
+        await existing.deleteOne();
+      } else {
+        // Switch vote type
+        existing.voteType = voteType;
+        await existing.save();
+      }
+    } else {
+      await Vote.create({ user: req.user.id, complaint: req.params.id, voteType });
+    }
+
+    // Return updated counts
+    const upvotes = await Vote.countDocuments({ complaint: req.params.id, voteType: 'upvote' });
+    const downvotes = await Vote.countDocuments({ complaint: req.params.id, voteType: 'downvote' });
+    const myVote = await Vote.findOne({ user: req.user.id, complaint: req.params.id });
+
+    return res.json({ success: true, likes: upvotes, dislikes: downvotes, userVote: myVote?.voteType || null });
+  } catch (error) {
+    console.error('Vote error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Comments: Get all for a complaint ─────────────────────
+router.get('/complaints/:id/comments', auth, async (req, res) => {
+  try {
+    const comments = await Comment.find({ complaint: req.params.id })
+      .populate('user', 'name profilePhoto')
+      .sort({ createdAt: 1 });
+    return res.json({ success: true, comments });
+  } catch (error) {
+    console.error('Get comments error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Comments: Add a comment ────────────────────────────────
+router.post('/complaints/:id/comments', auth, async (req, res) => {
+  try {
+    const { content } = req.body || {};
+    if (!content?.trim()) return res.status(400).json({ success: false, message: 'Comment cannot be empty' });
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    const comment = await Comment.create({
+      user: req.user.id,
+      complaint: req.params.id,
+      content: content.trim(),
+    });
+
+    await comment.populate('user', 'name profilePhoto');
+    return res.status(201).json({ success: true, comment });
+  } catch (error) {
+    console.error('Add comment error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Comments: Delete a comment ────────────────────────────
+router.delete('/comments/:commentId', auth, async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) return res.status(404).json({ success: false, message: 'Comment not found' });
+
+    // Only the comment author or an admin can delete
+    if (comment.user.toString() !== req.user.id && req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+
+    await comment.deleteOne();
+    return res.json({ success: true, message: 'Comment deleted' });
+  } catch (error) {
+    console.error('Delete comment error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
