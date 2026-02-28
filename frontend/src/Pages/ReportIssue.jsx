@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, MapPin, Camera, Send, X, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { Info, MapPin, Camera, Send, X, AlertCircle, Loader2, CheckCircle, LocateFixed } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import NavBar from '../Components/common/NavBar';
@@ -36,6 +36,7 @@ const ReportIssue = () => {
   const [selectedImage, setSelectedImage] = useState(null);   // preview URL
   const [imageFile, setImageFile] = useState(null);           // actual File object
   const [loadingAddress, setLoadingAddress] = useState(false);
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   const getAddress = async (lat, lng) => {
     setLoadingAddress(true);
@@ -51,6 +52,15 @@ const ReportIssue = () => {
     setLoadingAddress(false);
   };
 
+  // Flies the map whenever `position` changes (detect or click)
+  function MapController({ center }) {
+    const map = useMap();
+    React.useEffect(() => {
+      if (center) map.flyTo(center, Math.max(map.getZoom(), 15), { duration: 1.2 });
+    }, [center, map]);
+    return null;
+  }
+
   function LocationMarker() {
     useMapEvents({
       click(e) {
@@ -61,6 +71,32 @@ const ReportIssue = () => {
     });
     return position ? <Marker position={position} /> : null;
   }
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      setError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setDetectingLocation(true);
+    setError('');
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        const { latitude: lat, longitude: lng } = coords;
+        setPosition([lat, lng]);
+        await getAddress(lat, lng);
+        setDetectingLocation(false);
+      },
+      (err) => {
+        setDetectingLocation(false);
+        setError(
+          err.code === 1
+            ? 'Location access denied. Please allow location permission and try again.'
+            : 'Unable to detect location. Please pin manually on the map.'
+        );
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -197,11 +233,29 @@ const ReportIssue = () => {
 
               <div>
                 <label className="block text-[10px] font-black text-gray-400 mb-1.5 uppercase tracking-widest flex justify-between">
-                  Location Address * {loadingAddress && <span className="text-teal-500 animate-pulse italic">Fetching...</span>}
+                  Location Address *
+                  {(loadingAddress || detectingLocation) && <span className="text-teal-500 animate-pulse italic normal-case font-medium">{detectingLocation ? 'Detecting...' : 'Fetching address...'}</span>}
                 </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-3.5 h-4 w-4 text-teal-500" />
-                  <input name="address" type="text" value={formData.address} onChange={handleInputChange} placeholder="Click on the map to pin location" className="w-full pl-10 pr-4 py-3 border border-white/60 bg-white/50 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none font-medium text-sm" />
+                <div className="relative flex items-center">
+                  <MapPin className="absolute left-3 h-4 w-4 text-teal-500 pointer-events-none" />
+                  <input
+                    name="address"
+                    type="text"
+                    value={formData.address}
+                    onChange={handleInputChange}
+                    placeholder="Click map or detect location"
+                    className="w-full pl-10 pr-36 py-3 border border-white/60 bg-white/50 rounded-xl focus:ring-2 focus:ring-teal-400 outline-none font-medium text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleDetectLocation}
+                    disabled={detectingLocation || loadingAddress}
+                    className="absolute right-2 flex items-center gap-1.5 px-3 py-1.5 bg-teal-500 hover:bg-teal-600 disabled:opacity-60 text-white text-[11px] font-bold rounded-lg transition-all active:scale-[0.97] whitespace-nowrap"
+                  >
+                    {detectingLocation
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Detecting</>
+                      : <><LocateFixed className="h-3 w-3" /> Detect</>}
+                  </button>
                 </div>
               </div>
 
@@ -249,20 +303,22 @@ const ReportIssue = () => {
           {/* Right: Map */}
           <div className="flex flex-col gap-4">
             <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm p-8 h-[650px] flex flex-col">
-              <div className="flex items-center gap-2 mb-6">
+              <div className="flex items-center gap-2 mb-4">
                 <MapPin className="h-5 w-5 text-teal-500" />
                 <h3 className="font-bold uppercase tracking-tight text-gray-800">Pinpoint Location</h3>
               </div>
+
               <div className="flex-1 rounded-2xl overflow-hidden border border-white/60 z-0">
                 <MapContainer center={[20.5937, 78.9629]} zoom={5} style={{ height: '100%', width: '100%' }}>
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                  <MapController center={position} />
                   <LocationMarker />
                 </MapContainer>
               </div>
               <div className="mt-4 p-4 bg-teal-50/60 rounded-xl flex items-start gap-3 border border-teal-100">
                 <AlertCircle className="h-5 w-5 text-teal-500 mt-0.5" />
                 <p className="text-xs text-teal-800 leading-relaxed font-medium">
-                  Click anywhere on the map above to set the exact location of the issue. The address will be updated automatically.
+                  Use <strong>Detect My Location</strong> or click anywhere on the map to pin the issue. Address and coordinates are auto-filled.
                 </p>
               </div>
             </div>
