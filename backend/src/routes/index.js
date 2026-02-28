@@ -6,6 +6,7 @@ const Complaint = require('../models/Complaint');
 const Vote = require('../models/Vote');
 const Comment = require('../models/Comment');
 const auth = require('../middleware/auth');
+const { isVolunteer } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -430,6 +431,224 @@ router.delete('/comments/:commentId', auth, async (req, res) => {
     return res.json({ success: true, message: 'Comment deleted' });
   } catch (error) {
     console.error('Delete comment error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════
+// ─── VOLUNTEER ROUTES ────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+
+// ─── Volunteer: Get all complaints ────────────────────────────
+// Optionally filter by ?status=received|in_review|resolved
+router.get('/volunteer/complaints', auth, isVolunteer, async (req, res) => {
+  try {
+    console.log(`[Volunteer:GET /volunteer/complaints] volunteer=${req.user.email} status-filter="${req.query.status || 'none'}"`);
+
+    const filter = {};
+    const { status } = req.query;
+    const allowedStatuses = ['received', 'in_review', 'resolved'];
+    if (status && allowedStatuses.includes(status)) filter.status = status;
+
+    const complaints = await Complaint.find(filter)
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Attach vote counts
+    const complaintIds = complaints.map(c => c._id);
+    const votes = await Vote.find({ complaint: { $in: complaintIds } });
+
+    const countMap = {};
+    votes.forEach(v => {
+      const cid = v.complaint.toString();
+      if (!countMap[cid]) countMap[cid] = { upvotes: 0, downvotes: 0 };
+      if (v.voteType === 'upvote') countMap[cid].upvotes++;
+      else countMap[cid].downvotes++;
+    });
+
+    const enriched = complaints.map(c => ({
+      ...c.toObject(),
+      likes: countMap[c._id.toString()]?.upvotes || 0,
+      dislikes: countMap[c._id.toString()]?.downvotes || 0,
+    }));
+
+    console.log(`[Volunteer:GET /volunteer/complaints] returning ${enriched.length} complaints`);
+    return res.json({ success: true, complaints: enriched });
+  } catch (error) {
+    console.error('[Volunteer:GET /volunteer/complaints] error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Volunteer: Get nearby complaints ──────────────────────────
+// Query: ?lat=<lat>&lng=<lng>&radius=<km, default 10>
+router.get('/volunteer/complaints/nearby', auth, isVolunteer, async (req, res) => {
+  try {
+    const { lat, lng, radius = 10 } = req.query;
+    console.log(`[Volunteer:GET /volunteer/complaints/nearby] volunteer=${req.user.email} lat=${lat} lng=${lng} radius=${radius}km`);
+
+    if (!lat || !lng) {
+      console.warn('[Volunteer:GET /volunteer/complaints/nearby] Missing lat or lng');
+      return res.status(400).json({ success: false, message: 'lat and lng query params are required' });
+    }
+
+    const latitude = parseFloat(lat);
+    const longitude = parseFloat(lng);
+    const radiusInMeters = parseFloat(radius) * 1000;
+
+    if (isNaN(latitude) || isNaN(longitude) || isNaN(radiusInMeters)) {
+      console.warn('[Volunteer:GET /volunteer/complaints/nearby] Invalid coords');
+      return res.status(400).json({ success: false, message: 'Invalid lat, lng or radius values' });
+    }
+
+    const complaints = await Complaint.find({
+      locationCoords: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [longitude, latitude] },
+          $maxDistance: radiusInMeters,
+        },
+      },
+    })
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email');
+
+    console.log(`[Volunteer:GET /volunteer/complaints/nearby] found ${complaints.length} complaints within ${radius}km`);
+    return res.json({ success: true, complaints });
+  } catch (error) {
+    console.error('[Volunteer:GET /volunteer/complaints/nearby] error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Volunteer: Accept a complaint ────────────────────────────
+// Status: received → in_review, assignedTo = this volunteer
+router.post('/complaints/:id/accept', auth, isVolunteer, async (req, res) => {
+  try {
+    console.log(`[Volunteer:POST /complaints/${req.params.id}/accept] volunteer=${req.user.email}`);
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      console.warn(`[Volunteer:Accept] Complaint ${req.params.id} not found`);
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (complaint.status !== 'received') {
+      console.warn(`[Volunteer:Accept] Cannot accept — current status is "${complaint.status}"`);
+      return res.status(400).json({
+        success: false,
+        message: `Complaint is not available to accept (current status: ${complaint.status})`,
+      });
+    }
+
+    complaint.status = 'in_review';
+    complaint.assignedTo = req.user.id;
+    await complaint.save();
+    await complaint.populate('assignedTo', 'name email');
+    await complaint.populate('user', 'name email');
+
+    console.log(`[Volunteer:Accept] ✅ Complaint "${complaint.title}" accepted by ${req.user.email} → status: in_review`);
+    return res.json({ success: true, message: 'Complaint accepted and is now In Review', complaint });
+  } catch (error) {
+    console.error('[Volunteer:Accept] error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Volunteer: Reject / Unassign a complaint ────────────────
+// Status: in_review → received, clears assignedTo
+// Only the volunteer who accepted it can reject
+router.post('/complaints/:id/reject', auth, isVolunteer, async (req, res) => {
+  try {
+    console.log(`[Volunteer:POST /complaints/${req.params.id}/reject] volunteer=${req.user.email}`);
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      console.warn(`[Volunteer:Reject] Complaint ${req.params.id} not found`);
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (complaint.status !== 'in_review') {
+      console.warn(`[Volunteer:Reject] Cannot reject — current status is "${complaint.status}"`);
+      return res.status(400).json({
+        success: false,
+        message: `Only in_review complaints can be rejected (current status: ${complaint.status})`,
+      });
+    }
+
+    if (complaint.assignedTo?.toString() !== req.user.id) {
+      console.warn(`[Volunteer:Reject] DENIED — volunteer ${req.user.email} did not accept this complaint`);
+      return res.status(403).json({ success: false, message: 'You can only reject complaints you accepted' });
+    }
+
+    complaint.status = 'received';
+    complaint.assignedTo = null;
+    await complaint.save();
+    await complaint.populate('user', 'name email');
+
+    console.log(`[Volunteer:Reject] ✅ Complaint "${complaint.title}" rejected by ${req.user.email} → status: received`);
+    return res.json({ success: true, message: 'Complaint rejected and returned to received', complaint });
+  } catch (error) {
+    console.error('[Volunteer:Reject] error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Volunteer: Resolve a complaint ──────────────────────────
+// Status: in_review → resolved
+// Only the volunteer who accepted it can resolve
+router.patch('/complaints/:id/resolve', auth, isVolunteer, async (req, res) => {
+  try {
+    console.log(`[Volunteer:PATCH /complaints/${req.params.id}/resolve] volunteer=${req.user.email}`);
+
+    const complaint = await Complaint.findById(req.params.id);
+    if (!complaint) {
+      console.warn(`[Volunteer:Resolve] Complaint ${req.params.id} not found`);
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+    }
+
+    if (complaint.status !== 'in_review') {
+      console.warn(`[Volunteer:Resolve] Cannot resolve — current status is "${complaint.status}"`);
+      return res.status(400).json({
+        success: false,
+        message: `Only in_review complaints can be resolved (current status: ${complaint.status})`,
+      });
+    }
+
+    if (complaint.assignedTo?.toString() !== req.user.id) {
+      console.warn(`[Volunteer:Resolve] DENIED — volunteer ${req.user.email} did not accept this complaint`);
+      return res.status(403).json({ success: false, message: 'You can only resolve complaints you accepted' });
+    }
+
+    complaint.status = 'resolved';
+    await complaint.save();
+    await complaint.populate('assignedTo', 'name email');
+    await complaint.populate('user', 'name email');
+
+    console.log(`[Volunteer:Resolve] ✅ Complaint "${complaint.title}" resolved by ${req.user.email}`);
+    return res.json({ success: true, message: 'Complaint marked as Resolved', complaint });
+  } catch (error) {
+    console.error('[Volunteer:Resolve] error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Volunteer: My stats ──────────────────────────────────────
+// Returns how many complaints this volunteer has accepted, resolved, and total
+router.get('/volunteer/stats', auth, isVolunteer, async (req, res) => {
+  try {
+    console.log(`[Volunteer:GET /volunteer/stats] volunteer=${req.user.email}`);
+
+    const [accepted, resolved] = await Promise.all([
+      Complaint.countDocuments({ assignedTo: req.user.id, status: 'in_review' }),
+      Complaint.countDocuments({ assignedTo: req.user.id, status: 'resolved' }),
+    ]);
+
+    const stats = { accepted, resolved, total: accepted + resolved };
+    console.log(`[Volunteer:Stats] ${req.user.email} → accepted=${accepted} resolved=${resolved} total=${stats.total}`);
+    return res.json({ success: true, stats });
+  } catch (error) {
+    console.error('[Volunteer:Stats] error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });

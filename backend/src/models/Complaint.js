@@ -5,18 +5,22 @@ const ComplaintSchema = new mongoose.Schema(
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, required: true },
-    type: {type: String, enum: ["Waste / Garbage",
-      "Road Damage",
-      "Water Leakage",
-      "Street Light Issue",
-      "Pothole", 
-      "Others"],
+    type: {
+      type: String, enum: ["Waste / Garbage",
+        "Road Damage",
+        "Water Leakage",
+        "Street Light Issue",
+        "Pothole",
+        "Others"],
       default: 'N/A',
-      required: true,},
-    priority: {type: String,
+      required: true,
+    },
+    priority: {
+      type: String,
       enum: ['Low', 'Medium', 'High'],
       default: 'Medium',
-      required: true,},
+      required: true,
+    },
     photo: { type: String },
     locationCoords: {
       type: {
@@ -28,7 +32,7 @@ const ComplaintSchema = new mongoose.Schema(
       },
     },
     address: { type: String },
-    assignedTo: { type: String }, // office or volunteer id/name
+    assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // volunteer who accepted
     status: {
       type: String,
       enum: ['received', 'in_review', 'resolved'],

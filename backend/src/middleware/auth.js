@@ -17,5 +17,17 @@ const auth = (req, res, next) => {
   }
 };
 
+// ─── Volunteer guard — run AFTER auth ───────────────────────────
+const isVolunteer = (req, res, next) => {
+  console.log(`[isVolunteer] user: ${req.user?.email} | role: ${req.user?.role}`);
+  if (req.user?.role !== 'volunteer') {
+    console.warn(`[isVolunteer] DENIED — role "${req.user?.role}" is not volunteer`);
+    return res.status(403).json({ success: false, message: 'Access restricted to volunteers only' });
+  }
+  console.log(`[isVolunteer] GRANTED for ${req.user.email}`);
+  return next();
+};
+
 module.exports = auth;
+module.exports.isVolunteer = isVolunteer;
 
