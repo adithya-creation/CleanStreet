@@ -7,10 +7,7 @@ import {
 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
-import {
-  getComplaints, getMyComplaints, deleteComplaint,
-  updateComplaint, voteComplaint, getComments, postComment, deleteComment,
-} from '../services/complaintService';
+import {getComplaints,getMyComplaints,deleteComplaint,updateComplaint,voteComplaint,getComments,postComment,deleteComment,acceptComplaint,rejectComplaint,resolveComplaint,} from '../services/complaintService';
 import { getCurrentUser } from '../services/authService';
 
 /* ─── Constants ─────────────────────────────────────────────── */
@@ -67,6 +64,7 @@ const Avatar = ({ name = '', size = 8, colors = 'bg-gradient-to-br from-teal-400
 const ViewComplaints = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
+  const role = currentUser?.role; // 'user' | 'volunteer' | 'admin'
   const commentEndRef = useRef(null);
 
   /* ── state ── */
@@ -127,6 +125,18 @@ const ViewComplaints = () => {
     c.user?.toString() === currentUser.id ||
     c.user === currentUser.id
   );
+  // ── Update complaint status locally (no reload) ──
+const updateComplaintState = (id, updates) => {
+  setAllComplaints(prev =>
+    prev.map(c => c._id === id ? { ...c, ...updates } : c)
+  );
+  setMyComplaints(prev =>
+    prev.map(c => c._id === id ? { ...c, ...updates } : c)
+  );
+  if (selected?._id === id) {
+    setSelected(prev => ({ ...prev, ...updates }));
+  }
+};
 
   /* ── Vote ── */
   const handleVote = async (complaintId, action) => {
@@ -435,6 +445,57 @@ const ViewComplaints = () => {
                         </button>
                       </div>
                     )}
+                    {/* ── Volunteer Actions (Card View) ── */}
+{role === 'volunteer' && (
+  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+    {c.status === 'received' && (
+      <button
+        onClick={e => {
+          e.stopPropagation();
+          acceptComplaint(c._id).then(() => {
+          updateComplaintState(c._id, {
+          status: 'in_review',
+          assignedTo: currentUser.id,
+  });
+});        }}
+        className="text-teal-600 hover:text-white hover:bg-teal-500 border border-teal-200 hover:border-teal-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+      >
+        Accept
+      </button>
+    )}
+
+    {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
+      <>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            resolveComplaint(c._id).then(() => {
+            updateComplaintState(c._id, {
+            status: 'resolved',
+  });
+});          }}
+          className="text-emerald-600 hover:text-white hover:bg-emerald-500 border border-emerald-200 hover:border-emerald-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+        >
+          Resolve
+        </button>
+
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            rejectComplaint(c._id).then(() => {
+            updateComplaintState(c._id, {
+            status: 'received',
+            assignedTo: null,
+  });
+});          }}
+          className="text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+        >
+          Reject
+        </button>
+      </>
+    )}
+  </div>
+)}
                   </div>
                 </div>
               );
@@ -493,6 +554,51 @@ const ViewComplaints = () => {
                     </button>
                   </>
                 )}
+                {/* ── Volunteer Actions (Modal View) ── */}
+{role === 'volunteer' && (
+  <>
+    {selected.status === 'received' && (
+      <button
+        onClick={() =>acceptComplaint(selected._id).then(() => {
+  updateComplaintState(selected._id, {
+    status: 'in_review',
+    assignedTo: currentUser.id,
+  });
+})}
+        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+      >
+        Accept
+      </button>
+    )}
+
+    {selected.status === 'in_review' && selected.assignedTo === currentUser?.id && (
+      <>
+        <button
+          onClick={() => resolveComplaint(selected._id).then(() => {
+  updateComplaintState(selected._id, {
+    status: 'resolved',
+  });
+})}
+          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+        >
+          Resolve
+        </button>
+
+        <button
+          onClick={() => rejectComplaint(selected._id).then(() => {
+  updateComplaintState(selected._id, {
+    status: 'received',
+    assignedTo: null,
+  });
+})}
+          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+        >
+          Reject
+        </button>
+      </>
+    )}
+  </>
+)}
                 <button
                   onClick={() => { setSelected(null); setIsEditing(false); }}
                   className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
