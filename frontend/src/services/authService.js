@@ -50,9 +50,9 @@ export const fetchMe = async () => {
     return res.data.user;
 };
 
-// Update profile (name, email, location) — refreshes stored token + user
-export const updateProfile = async ({ name, email, location }) => {
-    const res = await api.patch('/me', { name, email, location });
+// Update profile (name, email, location, profilePhoto) — refreshes stored token + user
+export const updateProfile = async ({ name, email, location, profilePhoto }) => {
+    const res = await api.patch('/me', { name, email, location, profilePhoto });
     // Backend returns a new token with updated claims
     localStorage.setItem('token', res.data.token);
     localStorage.setItem('user', JSON.stringify(res.data.user));

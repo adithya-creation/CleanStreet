@@ -114,7 +114,7 @@ router.get('/me', auth, async (req, res) => {
 // ─── Auth: Update profile ─────────────────────────────────────
 router.patch('/me', auth, async (req, res) => {
   try {
-    const { name, email, location } = req.body || {};
+    const { name, email, location, profilePhoto } = req.body || {};
     const updates = {};
     if (name?.trim()) updates.name = name.trim();
     if (email?.trim()) {
@@ -125,6 +125,7 @@ router.patch('/me', auth, async (req, res) => {
       updates.email = email.trim().toLowerCase();
     }
     if (location !== undefined) updates.location = location?.trim();
+    if (profilePhoto?.trim()) updates.profilePhoto = profilePhoto.trim();
 
     const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true }).select('name email role location profilePhoto');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });

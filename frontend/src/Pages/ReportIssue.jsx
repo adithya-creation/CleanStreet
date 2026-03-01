@@ -24,7 +24,7 @@ const ReportIssue = () => {
   const fileInputRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(''); 
+  const [submitStatus, setSubmitStatus] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -33,8 +33,8 @@ const ReportIssue = () => {
   });
 
   const [position, setPosition] = useState([20.5937, 78.9629]);
-  const [selectedImage, setSelectedImage] = useState(null);  
-  const [imageFile, setImageFile] = useState(null);           
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
@@ -176,9 +176,9 @@ const ReportIssue = () => {
 
       {/* Success toast */}
       {success && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-teal-500 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3">
-          <CheckCircle className="h-6 w-6" />
-          <span className="font-bold text-lg">Report submitted successfully!</span>
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-teal-500 text-white px-5 py-2.5 rounded-xl shadow-lg flex items-center gap-2 text-sm font-semibold">
+          <CheckCircle className="h-4 w-4 shrink-0" />
+          <span>Report submitted successfully!</span>
         </div>
       )}
 
