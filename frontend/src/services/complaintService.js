@@ -65,3 +65,25 @@ export const deleteComment = async (commentId) => {
     const res = await api.delete(`/comments/${commentId}`);
     return res.data;
 };
+
+/* ───────── Volunteer Actions ───────── */
+
+// Accept complaint
+export const acceptComplaint = (id) =>
+  api.post(`/complaints/${id}/accept`);
+
+// Reject complaint
+export const rejectComplaint = (id) =>
+  api.post(`/complaints/${id}/reject`);
+
+// Resolve complaint
+export const resolveComplaint = (id) =>
+  api.patch(`/complaints/${id}/resolve`);
+
+// Volunteer stats
+export const getVolunteerStats = () =>
+  api.get('/volunteer/stats');
+
+// Nearby complaints
+export const getNearbyComplaints = (lat, lng, radius = 10) =>
+  api.get(`/volunteer/complaints/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
