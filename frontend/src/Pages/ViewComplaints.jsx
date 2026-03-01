@@ -445,57 +445,7 @@ const updateComplaintState = (id, updates) => {
                         </button>
                       </div>
                     )}
-                    {/* ── Volunteer Actions (Card View) ── */}
-{role === 'volunteer' && (
-  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-    {c.status === 'received' && (
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          acceptComplaint(c._id).then(() => {
-          updateComplaintState(c._id, {
-          status: 'in_review',
-          assignedTo: currentUser.id,
-  });
-});        }}
-        className="text-teal-600 hover:text-white hover:bg-teal-500 border border-teal-200 hover:border-teal-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-      >
-        Accept
-      </button>
-    )}
-
-    {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
-      <>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            resolveComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'resolved',
-  });
-});          }}
-          className="text-emerald-600 hover:text-white hover:bg-emerald-500 border border-emerald-200 hover:border-emerald-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Resolve
-        </button>
-
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            rejectComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'received',
-            assignedTo: null,
-  });
-});          }}
-          className="text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Reject
-        </button>
-      </>
-    )}
-  </div>
-)}
+                  
                   </div>
                 </div>
               );
@@ -554,49 +504,75 @@ const updateComplaintState = (id, updates) => {
                     </button>
                   </>
                 )}
-                {/* ── Volunteer Actions (Modal View) ── */}
-{role === 'volunteer' && (
+               {role === 'volunteer' && (
   <>
+    {/* ACCEPT */}
     {selected.status === 'received' && (
       <button
-        onClick={() =>acceptComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'in_review',
-    assignedTo: currentUser.id,
-  });
-})}
-        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+        onClick={async () => {
+          await acceptComplaint(selected._id);
+
+          const updated = {
+            ...selected,
+            status: 'in_review',
+            assignedTo: {
+              _id: currentUser.id,
+              name: currentUser.name,
+            },
+          };
+
+          updateComplaintState(selected._id, updated);
+          setSelected(updated);
+        }}
+        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer"
       >
         Accept
       </button>
     )}
 
-    {selected.status === 'in_review' && selected.assignedTo === currentUser?.id && (
-      <>
+    {/* RESOLVE + REJECT */}
+    {selected.status === 'in_review' &&
+      (
+        selected.assignedTo?._id === currentUser?.id ||
+        selected.assignedTo === currentUser?.id
+      ) && (
+        <>
         <button
-          onClick={() => resolveComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'resolved',
-  });
-})}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
-        >
-          Resolve
-        </button>
+  onClick={async () => {
+    try {
+      const res = await resolveComplaint(selected._id);
 
-        <button
-          onClick={() => rejectComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'received',
-    assignedTo: null,
-  });
-})}
-          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
-        >
-          Reject
-        </button>
-      </>
-    )}
+      const updated = res.complaint; // ⬅️ USE BACKEND DATA
+
+      updateComplaintState(updated._id, updated);
+      setSelected(updated);
+    } catch (e) {
+      alert('Failed to resolve complaint');
+    }
+  }}
+  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer"
+>
+  Resolve
+</button>
+          <button
+            onClick={async () => {
+              await rejectComplaint(selected._id);
+
+              const updated = {
+                ...selected,
+                status: 'received',
+                assignedTo: null,
+              };
+
+              updateComplaintState(selected._id, updated);
+              setSelected(updated);
+            }}
+            className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs cursor-pointer"
+          >
+            Reject
+          </button>
+        </>
+      )}
   </>
 )}
                 <button
@@ -700,6 +676,54 @@ const updateComplaintState = (id, updates) => {
                     {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
                   </p>
                 </div>
+               {selected.status === 'resolved' && (
+  <div>
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+      Resolved By
+    </label>
+
+    <div className="flex items-center gap-2">
+      <Avatar
+        name={
+          typeof selected.resolvedBy === 'object'
+            ? selected.resolvedBy.name
+            : 'Volunteer'
+        }
+        size={7}
+      />
+
+      <span className="text-sm font-bold text-emerald-700">
+        {typeof selected.resolvedBy === 'object'
+          ? selected.resolvedBy.name
+          : 'Volunteer'}
+      </span>
+    </div>
+  </div>
+)}
+               {selected.status === 'in_review' && selected.assignedTo && (
+  <div>
+    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">
+      Assigned To
+    </label>
+
+    <div className="flex items-center gap-2">
+      <Avatar
+        name={
+          typeof selected.assignedTo === 'object'
+            ? selected.assignedTo.name
+            : currentUser?.name
+        }
+        size={7}
+      />
+
+      <span className="text-sm font-bold text-gray-800">
+        {typeof selected.assignedTo === 'object'
+          ? selected.assignedTo.name
+          : currentUser?.name || 'Volunteer'}
+      </span>
+    </div>
+  </div>
+)}
 
                 {/* Votes */}
                 <div className="flex items-center gap-5 pt-1">
