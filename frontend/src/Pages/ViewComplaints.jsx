@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
-import {getComplaints,getMyComplaints,deleteComplaint,updateComplaint,voteComplaint,getComments,postComment,deleteComment,acceptComplaint,rejectComplaint,resolveComplaint,} from '../services/complaintService';
+import {getComplaints,getMyComplaints,deleteComplaint,updateComplaint,voteComplaint,getComments,postComment,deleteComment,acceptComplaint,rejectComplaint,resolveComplaint,getUsers,} from '../services/complaintService';
 import { getCurrentUser } from '../services/authService';
 
 /* ─── Constants ─────────────────────────────────────────────── */
@@ -76,6 +76,8 @@ const ViewComplaints = () => {
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
 
+  const [users, setUsers] = useState([]);
+
   // edit
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({});
@@ -86,6 +88,13 @@ const ViewComplaints = () => {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [posting, setPosting] = useState(false);
+
+  useEffect(() => {
+  // Fetch all volunteers
+  getUsers()
+    .then(setUsers)          // setUsers(usersArray)
+    .catch(() => console.log('Failed to fetch users'));
+}, []);
 
   /* ── Load complaints ── */
   useEffect(() => {
@@ -114,6 +123,8 @@ const ViewComplaints = () => {
   useEffect(() => {
     commentEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments.length]);
+
+  
 
   /* ── Derived lists ── */
   const base = tab === 'mine' ? myComplaints : allComplaints;
@@ -215,6 +226,8 @@ const updateComplaintState = (id, updates) => {
 
   const lat = selected?.locationCoords?.coordinates?.[1];
   const lng = selected?.locationCoords?.coordinates?.[0];
+
+  const assignedUser = users.find(u => u._id === selected.assignedTo);
 
   /* ─────────────────────────────────────────────────────────────
      RENDER
@@ -445,57 +458,7 @@ const updateComplaintState = (id, updates) => {
                         </button>
                       </div>
                     )}
-                    {/* ── Volunteer Actions (Card View) ── */}
-{role === 'volunteer' && (
-  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-    {c.status === 'received' && (
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          acceptComplaint(c._id).then(() => {
-          updateComplaintState(c._id, {
-          status: 'in_review',
-          assignedTo: currentUser.id,
-  });
-});        }}
-        className="text-teal-600 hover:text-white hover:bg-teal-500 border border-teal-200 hover:border-teal-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-      >
-        Accept
-      </button>
-    )}
-
-    {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
-      <>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            resolveComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'resolved',
-  });
-});          }}
-          className="text-emerald-600 hover:text-white hover:bg-emerald-500 border border-emerald-200 hover:border-emerald-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Resolve
-        </button>
-
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            rejectComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'received',
-            assignedTo: null,
-  });
-});          }}
-          className="text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Reject
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    
                   </div>
                 </div>
               );
@@ -700,6 +663,17 @@ const updateComplaintState = (id, updates) => {
                     {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
                   </p>
                 </div>
+
+                {/* Assigned to */}
+{selected.assignedTo && (
+  <div>
+  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Assigned To</label>
+  <p className="text-sm text-gray-700 flex items-center gap-1.5">
+    <Avatar name={assignedUser?.name} size={5} />
+    {assignedUser ? assignedUser.name : selected.assignedTo || '—'}
+  </p>
+</div>
+)}
 
                 {/* Votes */}
                 <div className="flex items-center gap-5 pt-1">
