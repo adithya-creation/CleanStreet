@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; 
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, MapPin, Camera, Shield, Eye, EyeOff, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
@@ -7,6 +7,7 @@ import { fetchMe, updateProfile, changePassword } from '../services/authService'
 
 const Profile = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null); 
   const [activeTab, setActiveTab] = useState('personal');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const [loading, setLoading] = useState(true);
@@ -14,7 +15,7 @@ const Profile = () => {
   const [error, setError] = useState('');
 
   const [formData, setFormData] = useState({
-    name: '', email: '', location: '', role: '',
+    name: '', email: '', location: '', role: '', profilePic: '' 
   });
 
   const [securityData, setSecurityData] = useState({
@@ -22,7 +23,6 @@ const Profile = () => {
   });
   const [showPass, setShowPass] = useState({ currentPassword: false, newPassword: false, confirmPassword: false });
 
-  // Load real user from backend on mount
   useEffect(() => {
     const loadUser = async () => {
       try {
@@ -32,6 +32,7 @@ const Profile = () => {
           email: user.email || '',
           location: user.location || '',
           role: user.role || 'user',
+          profilePic: user.profilePic || '', 
         });
       } catch {
         showToast('Failed to load profile data.', 'error');
@@ -45,6 +46,22 @@ const Profile = () => {
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
     setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData(prev => ({ ...prev, profilePic: reader.result }));
+    };
+    reader.readAsDataURL(file);
+    setFormData(prev => ({ ...prev, imageFile: file }));
   };
 
   const handlePersonalChange = (e) => {
@@ -61,12 +78,17 @@ const Profile = () => {
     e.preventDefault();
     setSaving(true);
     setError('');
+    
     try {
-      await updateProfile({
-        name: formData.name,
-        email: formData.email,
-        location: formData.location,
-      });
+      const data = new FormData();
+      data.append('name', formData.name);
+      data.append('email', formData.email);
+      data.append('location', formData.location);
+      if (formData.imageFile) {
+        data.append('profilePic', formData.imageFile);
+      }
+
+      await updateProfile(data); 
       showToast('Profile updated successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile.');
@@ -113,14 +135,9 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans flex flex-col relative">
-
-      {/* Toast */}
       {toast.show && (
-        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all ${toast.type === 'success' ? 'bg-teal-500 text-white' : 'bg-red-500 text-white'
-          }`}>
-          {toast.type === 'success'
-            ? <CheckCircle className="h-6 w-6" />
-            : <AlertCircle className="h-6 w-6" />}
+        <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 transition-all ${toast.type === 'success' ? 'bg-teal-500 text-white' : 'bg-red-500 text-white'}`}>
+          {toast.type === 'success' ? <CheckCircle className="h-6 w-6" /> : <AlertCircle className="h-6 w-6" />}
           <span className="font-bold text-lg">{toast.message}</span>
         </div>
       )}
@@ -134,18 +151,37 @@ const Profile = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* Sidebar — live user card */}
           <div className="lg:col-span-4">
             <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm p-8 flex flex-col items-center text-center">
+              
+              {/* Profile Image Section */}
               <div className="relative mb-6">
-                <div className="w-32 h-32 border-4 border-teal-100 rounded-full flex items-center justify-center bg-white/50 text-teal-600 text-5xl font-black shadow-inner">
-                  {firstLetter}
+                <div className="w-32 h-32 border-4 border-teal-100 rounded-full flex items-center justify-center bg-white/50 text-teal-600 text-5xl font-black shadow-inner overflow-hidden">
+                  {formData.profilePic ? (
+                    <img src={formData.profilePic} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    firstLetter
+                  )}
                 </div>
-                <button className="absolute bottom-1 right-1 bg-white p-2 rounded-full shadow-lg border border-white/60 text-teal-600 hover:scale-110">
+                
+                {/* Hidden File Input */}
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileChange} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
+                
+                {/* Trigger Button */}
+                <button 
+                  onClick={handleImageClick}
+                  className="absolute bottom-1 right-1 bg-white p-2 rounded-full shadow-lg border border-white/60 text-teal-600 hover:scale-110 transition-transform active:scale-90"
+                >
                   <Camera className="h-5 w-5" />
                 </button>
               </div>
+
               <h2 className="text-2xl font-bold text-gray-800 break-all">{formData.name}</h2>
               <p className="text-gray-500 text-sm mb-4 break-all">{formData.email}</p>
               <span className="bg-teal-50 text-teal-600 px-6 py-1 rounded-full text-xs font-bold uppercase tracking-widest">{formData.role}</span>
@@ -157,11 +193,8 @@ const Profile = () => {
             </div>
           </div>
 
-          {/* Content */}
           <div className="lg:col-span-8">
             <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm overflow-hidden">
-
-              {/* Tabs */}
               <div className="flex border-b border-white/60">
                 <button
                   onClick={() => { setActiveTab('personal'); setError(''); }}
@@ -206,7 +239,7 @@ const Profile = () => {
                     </div>
                     <div className="flex justify-end gap-3 pt-6 border-t border-white/40">
                       <button type="button" onClick={() => navigate('/dashboard')} className="px-6 py-3 rounded-xl font-bold text-gray-500 hover:bg-white/50 transition-colors">Cancel</button>
-                        <button type="submit" disabled={saving} className="px-8 py-3 bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center gap-2">
+                      <button type="submit" disabled={saving} className="px-8 py-3 bg-[#F87171] hover:bg-[#EF4444] disabled:opacity-60 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center gap-2">
                         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                         Save Changes
                       </button>
@@ -249,10 +282,8 @@ const Profile = () => {
               </div>
             </div>
           </div>
-
         </div>
       </div>
-
       <Footer />
     </div>
   );
