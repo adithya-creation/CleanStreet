@@ -759,7 +759,14 @@ const ViewComplaints = () => {
                     </p>
                   )}
                 </div>
-
+                {/* Reported on */}
+                <div>
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Reported On</label>
+                  <p className="text-sm text-gray-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                    {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
+                  </p>
+                </div>
                 <div className="flex items-center gap-5 pt-1">
                   <button
                     onClick={() => handleVote(selected._id, 'like')}
