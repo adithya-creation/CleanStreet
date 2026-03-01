@@ -1,13 +1,19 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ClipboardX, MapPin, Clock, Plus, Loader2,
   ThumbsUp, ThumbsDown, Pencil, Trash2, X,
-  Save, Send, MessageSquare, ChevronDown,
+  Save, Send, MessageSquare, ChevronDown, Filter,
+  Navigation
 } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
-import {getComplaints,getMyComplaints,deleteComplaint,updateComplaint,voteComplaint,getComments,postComment,deleteComment,acceptComplaint,rejectComplaint,resolveComplaint,} from '../services/complaintService';
+import {
+  getComplaints, getMyComplaints, deleteComplaint, updateComplaint,
+  voteComplaint, getComments, postComment, deleteComment,
+  acceptComplaint, rejectComplaint, resolveComplaint,
+} from '../services/complaintService';
 import { getCurrentUser } from '../services/authService';
 
 /* ─── Constants ─────────────────────────────────────────────── */
@@ -40,6 +46,9 @@ const TYPE_ICONS = {
   'Others': '📌',
 };
 
+// Distance threshold for "Near Me" in Kilometers
+const PROXIMITY_THRESHOLD = 5;
+
 /* ─── Tiny helpers ───────────────────────────────────────────── */
 const initials = (name = '') =>
   name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
@@ -50,7 +59,18 @@ const fmtDate = (iso) =>
 const fmtTime = (iso) =>
   new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
 
-/* ─── Avatar component ───────────────────────────────────────── */
+// Haversine formula to calculate distance between two lat/lng points
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const Avatar = ({ name = '', size = 8, colors = 'bg-gradient-to-br from-teal-400 to-cyan-500' }) => (
   <div className={`w-${size} h-${size} rounded-full ${colors} flex items-center justify-center text-white font-black shrink-0`}
     style={{ fontSize: size < 8 ? '9px' : '11px' }}>
@@ -58,9 +78,6 @@ const Avatar = ({ name = '', size = 8, colors = 'bg-gradient-to-br from-teal-400
   </div>
 );
 
-/* ═══════════════════════════════════════════════════════════════
-   VIEW COMPLAINTS PAGE
-═══════════════════════════════════════════════════════════════ */
 const ViewComplaints = () => {
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
@@ -70,11 +87,20 @@ const ViewComplaints = () => {
   /* ── state ── */
   const [tab, setTab] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  
+  // --- Filter states ---
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [priorityFilter, setPriorityFilter] = useState('all');
+
   const [allComplaints, setAllComplaints] = useState([]);
   const [myComplaints, setMyComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selected, setSelected] = useState(null);
+
+  // Near Me Logic States
+  const [userLocation, setUserLocation] = useState(null);
+  const [locating, setLocating] = useState(false);
 
   // edit
   const [isEditing, setIsEditing] = useState(false);
@@ -115,9 +141,48 @@ const ViewComplaints = () => {
     commentEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [comments.length]);
 
-  /* ── Derived lists ── */
+  /* ── Geolocation Helper ── */
+  const handleNearMeTab = () => {
+    setTab('near');
+    if (!userLocation) {
+      setLocating(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+          setLocating(false);
+        },
+        () => {
+          setError('Location access denied. Cannot show nearby complaints.');
+          setLocating(false);
+          setTab('all');
+        }
+      );
+    }
+  };
+
+  /* ── Filter Logic ── */
   const base = tab === 'mine' ? myComplaints : allComplaints;
-  const filtered = statusFilter === 'all' ? base : base.filter(c => c.status === statusFilter);
+  
+  const filtered = base.filter(c => {
+    const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+    const matchesType = typeFilter === 'all' || c.type === typeFilter;
+    const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
+    
+    // Proximity Filter for Volunteers
+    let matchesProximity = true;
+    if (tab === 'near' && userLocation) {
+      const cLat = c.locationCoords?.coordinates?.[1];
+      const cLng = c.locationCoords?.coordinates?.[0];
+      if (cLat && cLng) {
+        const dist = calculateDistance(userLocation.lat, userLocation.lng, cLat, cLng);
+        matchesProximity = dist <= PROXIMITY_THRESHOLD;
+      } else {
+        matchesProximity = false;
+      }
+    }
+
+    return matchesStatus && matchesType && matchesPriority && matchesProximity;
+  });
 
   /* ── Helpers ── */
   const isOwner = (c) => currentUser && (
@@ -125,18 +190,18 @@ const ViewComplaints = () => {
     c.user?.toString() === currentUser.id ||
     c.user === currentUser.id
   );
-  // ── Update complaint status locally (no reload) ──
-const updateComplaintState = (id, updates) => {
-  setAllComplaints(prev =>
-    prev.map(c => c._id === id ? { ...c, ...updates } : c)
-  );
-  setMyComplaints(prev =>
-    prev.map(c => c._id === id ? { ...c, ...updates } : c)
-  );
-  if (selected?._id === id) {
-    setSelected(prev => ({ ...prev, ...updates }));
-  }
-};
+
+  const updateComplaintState = (id, updates) => {
+    setAllComplaints(prev =>
+      prev.map(c => c._id === id ? { ...c, ...updates } : c)
+    );
+    setMyComplaints(prev =>
+      prev.map(c => c._id === id ? { ...c, ...updates } : c)
+    );
+    if (selected?._id === id) {
+      setSelected(prev => ({ ...prev, ...updates }));
+    }
+  };
 
   /* ── Vote ── */
   const handleVote = async (complaintId, action) => {
@@ -194,7 +259,6 @@ const updateComplaintState = (id, updates) => {
     finally { setSaving(false); }
   };
 
-  /* ── Comments ── */
   const handlePost = async () => {
     if (!commentText.trim()) return;
     setPosting(true);
@@ -216,9 +280,6 @@ const updateComplaintState = (id, updates) => {
   const lat = selected?.locationCoords?.coordinates?.[1];
   const lng = selected?.locationCoords?.coordinates?.[0];
 
-  /* ─────────────────────────────────────────────────────────────
-     RENDER
-  ───────────────────────────────────────────────────────────── */
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f8f4ff] via-[#fef6f0] to-[#e6f7f4] font-sans flex flex-col">
       <NavBar />
@@ -246,16 +307,27 @@ const updateComplaintState = (id, updates) => {
           {[
             { key: 'all', label: 'All Complaints', count: allComplaints.length },
             { key: 'mine', label: 'Your Complaints', count: myComplaints.length },
+            ...(role === 'volunteer' ? [{ key: 'near', label: 'Near Me', icon: <Navigation className="w-3.5 h-3.5" /> }] : [])
           ].map(t => (
             <button
               key={t.key}
-              onClick={() => { setTab(t.key); setStatusFilter('all'); }}
+              onClick={() => { 
+                if (t.key === 'near') {
+                  handleNearMeTab();
+                } else {
+                  setTab(t.key);
+                }
+                setStatusFilter('all'); 
+                setTypeFilter('all'); 
+                setPriorityFilter('all'); 
+              }}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key
                 ? 'bg-teal-500 text-white shadow-md shadow-teal-200/60'
                 : 'text-gray-500 hover:text-teal-600 hover:bg-teal-50'
                 }`}
             >
-              {t.label}
+              {t.icon && t.icon}
+              {t.key === 'near' && locating ? 'Locating...' : t.label}
               {t.count > 0 && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === t.key ? 'bg-white/25 text-white' : 'bg-teal-100 text-teal-700'
                   }`}>{t.count}</span>
@@ -264,21 +336,10 @@ const updateComplaintState = (id, updates) => {
           ))}
         </div>
 
-        {/* ── "Your Complaints" info banner ── */}
-        {tab === 'mine' && !loading && myComplaints.length > 0 && (
-          <div className="flex items-center gap-3 mb-6 px-5 py-3 bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-2xl">
-            <span className="text-lg">✏️</span>
-            <div>
-              <p className="text-sm font-black text-teal-800">Your Complaints</p>
-              <p className="text-xs text-teal-600">Only you can edit or delete these. Use the buttons on each card.</p>
-            </div>
-          </div>
-        )}
-
         {/* ── Status filters ── */}
-        <div className="flex gap-2 mb-8 flex-wrap">
+        <div className="flex gap-2 mb-5 flex-wrap">
           {[
-            { key: 'all', label: 'All' },
+            { key: 'all', label: 'All Status' },
             { key: 'received', label: 'Received' },
             { key: 'in_review', label: 'In Review' },
             { key: 'resolved', label: 'Resolved' },
@@ -296,6 +357,51 @@ const updateComplaintState = (id, updates) => {
           ))}
         </div>
 
+        {/* ── Category & Priority Filters ── */}
+        <div className="flex flex-wrap items-center gap-3 mb-8 p-4 bg-white/50 backdrop-blur-md rounded-2xl border border-white/80 shadow-sm">
+          <div className="flex items-center gap-2 text-gray-400 mr-2 shrink-0">
+            <Filter className="h-4 w-4" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Filter By</span>
+          </div>
+          
+          <div className="relative">
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="appearance-none bg-white border border-gray-100 text-gray-700 text-xs font-bold px-4 py-2 pr-8 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="all">All Categories</option>
+              {Object.keys(TYPE_ICONS).map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select 
+              value={priorityFilter}
+              onChange={(e) => setPriorityFilter(e.target.value)}
+              className="appearance-none bg-white border border-gray-100 text-gray-700 text-xs font-bold px-4 py-2 pr-8 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 transition-all cursor-pointer shadow-sm"
+            >
+              <option value="all">All Priorities</option>
+              <option value="High">High Priority</option>
+              <option value="Medium">Medium Priority</option>
+              <option value="Low">Low Priority</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+          </div>
+
+          {(typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all') && (
+            <button 
+              onClick={() => { setTypeFilter('all'); setPriorityFilter('all'); setStatusFilter('all'); }}
+              className="text-[10px] font-black text-rose-500 uppercase hover:text-rose-600 transition-colors ml-auto px-2"
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+
         {/* ── Content area ── */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-32 gap-4">
@@ -309,22 +415,25 @@ const updateComplaintState = (id, updates) => {
             {error}
           </div>
         ) : filtered.length === 0 ? (
-          /* Empty state */
           <div className="flex flex-col items-center text-center py-24 px-8">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-teal-100 to-cyan-100 flex items-center justify-center mb-6 shadow-inner">
               <ClipboardX className="h-12 w-12 text-teal-400" />
             </div>
-            <h3 className="text-2xl font-black text-gray-800 mb-2">
-              {tab === 'mine' ? "You haven't reported anything yet" : 'No complaints found'}
-            </h3>
+            <h3 className="text-2xl font-black text-gray-800 mb-2">No complaints found</h3>
             <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
-              {tab === 'mine'
-                ? 'Help keep your community clean — tap below to report an issue.'
-                : statusFilter === 'all'
-                  ? 'No complaints have been reported yet. Be the first to make a difference!'
-                  : `No complaints with status "${statusFilter.replace('_', ' ')}".`}
+              {tab === 'near' ? `There are no reported issues within ${PROXIMITY_THRESHOLD}km of your location.` : 
+               typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all' 
+                ? "We couldn't find any complaints matching your active filters." 
+                : tab === 'mine' ? "You haven't reported anything yet." : "No complaints have been reported yet."}
             </p>
-            {(tab === 'mine' || statusFilter === 'all') && (
+            {(typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all' || tab === 'near') ? (
+               <button
+               onClick={() => { setTab('all'); setTypeFilter('all'); setPriorityFilter('all'); setStatusFilter('all'); }}
+               className="bg-teal-500 text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
+             >
+               Clear Filters & View All
+             </button>
+            ) : (
               <button
                 onClick={() => navigate('/report')}
                 className="bg-gradient-to-r from-rose-500 to-orange-400 hover:opacity-90 text-white font-bold px-8 py-3 rounded-2xl shadow-lg shadow-rose-200 transition-all hover:scale-[1.02]"
@@ -341,7 +450,7 @@ const updateComplaintState = (id, updates) => {
               const grad = GRADIENTS[idx % GRADIENTS.length];
               const isLiked = c.userVote === 'upvote';
               const isDisliked = c.userVote === 'downvote';
-              const mine = tab === 'mine'; // Only show edit/delete on "Your Complaints" tab cards
+              const mine = tab === 'mine';
 
               return (
                 <div
@@ -349,7 +458,6 @@ const updateComplaintState = (id, updates) => {
                   onClick={() => { setSelected(c); setIsEditing(false); }}
                   className="group bg-white rounded-[22px] border border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-200 overflow-hidden cursor-pointer flex flex-col"
                 >
-                  {/* Image area */}
                   <div className="relative h-44 overflow-hidden shrink-0 bg-gray-50">
                     {c.photo ? (
                       <img src={c.photo} alt={c.title}
@@ -360,13 +468,11 @@ const updateComplaintState = (id, updates) => {
                       </div>
                     )}
 
-                    {/* Status pill */}
                     <div className={`absolute top-3 left-3 flex items-center gap-1.5 ${s.bg} ${s.text} text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-sm`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${s.dot} animate-pulse`} />
                       {s.label}
                     </div>
 
-                    {/* User chip */}
                     <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-white/90 backdrop-blur-sm rounded-full pl-0.5 pr-2.5 py-0.5 shadow-sm">
                       <Avatar name={c.user?.name} size={5} />
                       <span className="text-[10px] font-bold text-gray-700 max-w-[72px] truncate">
@@ -375,10 +481,7 @@ const updateComplaintState = (id, updates) => {
                     </div>
                   </div>
 
-                  {/* Body */}
                   <div className="p-4 flex flex-col flex-1">
-
-                    {/* Title + type */}
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <h3 className="font-black text-gray-900 text-[15px] line-clamp-1 leading-snug flex-1">{c.title}</h3>
                       {c.priority && (
@@ -392,7 +495,6 @@ const updateComplaintState = (id, updates) => {
                       <p className="text-gray-400 text-xs leading-relaxed line-clamp-2 mb-3">{c.description}</p>
                     )}
 
-                    {/* Reactions */}
                     <div className="flex items-center gap-4 mb-3">
                       <button
                         onClick={e => { e.stopPropagation(); handleVote(c._id, 'like'); }}
@@ -414,7 +516,6 @@ const updateComplaintState = (id, updates) => {
                       </button>
                     </div>
 
-                    {/* Footer row */}
                     <div className="mt-auto flex items-center justify-between text-[11px] text-gray-400 pt-3 border-t border-gray-100">
                       {c.address ? (
                         <span className="flex items-center gap-1 truncate max-w-[60%]">
@@ -428,7 +529,6 @@ const updateComplaintState = (id, updates) => {
                       </span>
                     </div>
 
-                    {/* ── Edit / Delete ONLY on "Your Complaints" tab ── */}
                     {mine && (
                       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
                         <button
@@ -445,57 +545,50 @@ const updateComplaintState = (id, updates) => {
                         </button>
                       </div>
                     )}
-                    {/* ── Volunteer Actions (Card View) ── */}
-{role === 'volunteer' && (
-  <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
-    {c.status === 'received' && (
-      <button
-        onClick={e => {
-          e.stopPropagation();
-          acceptComplaint(c._id).then(() => {
-          updateComplaintState(c._id, {
-          status: 'in_review',
-          assignedTo: currentUser.id,
-  });
-});        }}
-        className="text-teal-600 hover:text-white hover:bg-teal-500 border border-teal-200 hover:border-teal-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-      >
-        Accept
-      </button>
-    )}
 
-    {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
-      <>
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            resolveComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'resolved',
-  });
-});          }}
-          className="text-emerald-600 hover:text-white hover:bg-emerald-500 border border-emerald-200 hover:border-emerald-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Resolve
-        </button>
-
-        <button
-          onClick={e => {
-            e.stopPropagation();
-            rejectComplaint(c._id).then(() => {
-            updateComplaintState(c._id, {
-            status: 'received',
-            assignedTo: null,
-  });
-});          }}
-          className="text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
-        >
-          Reject
-        </button>
-      </>
-    )}
-  </div>
-)}
+                    {role === 'volunteer' && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                        {c.status === 'received' && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              acceptComplaint(c._id).then(() => {
+                                updateComplaintState(c._id, { status: 'in_review', assignedTo: currentUser.id });
+                              });
+                            }}
+                            className="text-teal-600 hover:text-white hover:bg-teal-500 border border-teal-200 hover:border-teal-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+                          >
+                            Accept
+                          </button>
+                        )}
+                        {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
+                          <>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                resolveComplaint(c._id).then(() => {
+                                  updateComplaintState(c._id, { status: 'resolved' });
+                                });
+                              }}
+                              className="text-emerald-600 hover:text-white hover:bg-emerald-500 border border-emerald-200 hover:border-emerald-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+                            >
+                              Resolve
+                            </button>
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                rejectComplaint(c._id).then(() => {
+                                  updateComplaintState(c._id, { status: 'received', assignedTo: null });
+                                });
+                              }}
+                              className="text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 font-bold text-xs px-3 py-1.5 rounded-xl transition-all"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -504,9 +597,6 @@ const updateComplaintState = (id, updates) => {
         )}
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          DETAIL MODAL
-      ══════════════════════════════════════════════════════════ */}
       {selected && (
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4"
@@ -516,15 +606,12 @@ const updateComplaintState = (id, updates) => {
             className="bg-white w-full sm:w-[95%] sm:max-w-4xl rounded-t-[28px] sm:rounded-[28px] shadow-2xl max-h-[95vh] overflow-y-auto flex flex-col"
             onClick={e => e.stopPropagation()}
           >
-            {/* Modal top drag handle (mobile) */}
             <div className="flex justify-center pt-3 pb-1 sm:hidden">
               <div className="w-10 h-1 bg-gray-200 rounded-full" />
             </div>
 
-            {/* ── Modal header ── */}
             <div className="sticky top-0 bg-white/95 backdrop-blur-sm z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <div className="flex items-center gap-3 min-w-0">
-                {/* Status dot */}
                 {(() => {
                   const s = STATUS[selected.status] || { bg: 'bg-gray-100', dot: 'bg-gray-400', text: 'text-gray-600', label: selected.status };
                   return (
@@ -554,51 +641,41 @@ const updateComplaintState = (id, updates) => {
                     </button>
                   </>
                 )}
-                {/* ── Volunteer Actions (Modal View) ── */}
-{role === 'volunteer' && (
-  <>
-    {selected.status === 'received' && (
-      <button
-        onClick={() =>acceptComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'in_review',
-    assignedTo: currentUser.id,
-  });
-})}
-        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
-      >
-        Accept
-      </button>
-    )}
-
-    {selected.status === 'in_review' && selected.assignedTo === currentUser?.id && (
-      <>
-        <button
-          onClick={() => resolveComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'resolved',
-  });
-})}
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
-        >
-          Resolve
-        </button>
-
-        <button
-          onClick={() => rejectComplaint(selected._id).then(() => {
-  updateComplaintState(selected._id, {
-    status: 'received',
-    assignedTo: null,
-  });
-})}
-          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
-        >
-          Reject
-        </button>
-      </>
-    )}
-  </>
-)}
+                
+                {role === 'volunteer' && (
+                  <>
+                    {selected.status === 'received' && (
+                      <button
+                        onClick={() => acceptComplaint(selected._id).then(() => {
+                          updateComplaintState(selected._id, { status: 'in_review', assignedTo: currentUser.id });
+                        })}
+                        className="bg-teal-500 hover:bg-teal-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+                      >
+                        Accept
+                      </button>
+                    )}
+                    {selected.status === 'in_review' && selected.assignedTo === currentUser?.id && (
+                      <>
+                        <button
+                          onClick={() => resolveComplaint(selected._id).then(() => {
+                            updateComplaintState(selected._id, { status: 'resolved' });
+                          })}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+                        >
+                          Resolve
+                        </button>
+                        <button
+                          onClick={() => rejectComplaint(selected._id).then(() => {
+                            updateComplaintState(selected._id, { status: 'received', assignedTo: null });
+                          })}
+                          className="bg-rose-500 hover:bg-rose-600 text-white px-3 py-1.5 rounded-xl font-bold text-xs"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
+                  </>
+                )}
                 <button
                   onClick={() => { setSelected(null); setIsEditing(false); }}
                   className="w-8 h-8 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
@@ -608,10 +685,7 @@ const updateComplaintState = (id, updates) => {
               </div>
             </div>
 
-            {/* ── Modal body ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-
-              {/* LEFT — image */}
               <div className="rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 aspect-[4/3]">
                 {selected.photo ? (
                   <img src={selected.photo} alt={selected.title} className="w-full h-full object-cover" />
@@ -623,10 +697,7 @@ const updateComplaintState = (id, updates) => {
                 )}
               </div>
 
-              {/* RIGHT — details */}
               <div className="flex flex-col gap-4">
-
-                {/* Field: Title */}
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Title</label>
                   {isEditing ? (
@@ -637,7 +708,6 @@ const updateComplaintState = (id, updates) => {
                   )}
                 </div>
 
-                {/* Field: Description */}
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Description</label>
                   {isEditing ? (
@@ -648,14 +718,13 @@ const updateComplaintState = (id, updates) => {
                   )}
                 </div>
 
-                {/* Field: Type + Priority row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Type</label>
                     {isEditing ? (
                       <select className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-400"
                         value={editData.type} onChange={e => setEditData(p => ({ ...p, type: e.target.value }))}>
-                        {['Waste / Garbage', 'Road Damage', 'Water Leakage', 'Street Light Issue', 'Pothole', 'Others'].map(o => (
+                        {Object.keys(TYPE_ICONS).map(o => (
                           <option key={o} value={o}>{o}</option>
                         ))}
                       </select>
@@ -678,7 +747,6 @@ const updateComplaintState = (id, updates) => {
                   </div>
                 </div>
 
-                {/* Field: Address */}
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Address</label>
                   {isEditing ? (
@@ -691,7 +759,6 @@ const updateComplaintState = (id, updates) => {
                     </p>
                   )}
                 </div>
-
                 {/* Reported on */}
                 <div>
                   <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Reported On</label>
@@ -700,8 +767,6 @@ const updateComplaintState = (id, updates) => {
                     {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
                   </p>
                 </div>
-
-                {/* Votes */}
                 <div className="flex items-center gap-5 pt-1">
                   <button
                     onClick={() => handleVote(selected._id, 'like')}
@@ -725,7 +790,6 @@ const updateComplaintState = (id, updates) => {
                   </button>
                 </div>
 
-                {/* Save / Cancel (edit mode) */}
                 {isEditing && (
                   <div className="flex gap-3 pt-1">
                     <button onClick={handleSave} disabled={saving}
@@ -742,7 +806,6 @@ const updateComplaintState = (id, updates) => {
               </div>
             </div>
 
-            {/* ── Map — always shown ── */}
             <div className="mx-6 mb-6">
               <div className="flex items-center gap-2 mb-3">
                 <MapPin className="w-4 h-4 text-teal-500" />
@@ -772,17 +835,9 @@ const updateComplaintState = (id, updates) => {
                   </div>
                 )}
               </div>
-              {selected.address && (
-                <p className="mt-2 text-xs text-gray-400 flex items-center gap-1.5">
-                  <MapPin className="w-3 h-3 text-teal-400 shrink-0" />
-                  {selected.address}
-                </p>
-              )}
             </div>
 
-            {/* ── Discussion ── */}
             <div className="mx-6 mb-6">
-              {/* Section header */}
               <div className="flex items-center gap-2.5 mb-5">
                 <div className="w-8 h-8 rounded-xl bg-teal-50 flex items-center justify-center">
                   <MessageSquare className="w-4 h-4 text-teal-500" />
@@ -793,7 +848,6 @@ const updateComplaintState = (id, updates) => {
                 </span>
               </div>
 
-              {/* Comments list */}
               <div className="space-y-4 mb-5 max-h-72 overflow-y-auto scroll-smooth pr-1">
                 {commentsLoading ? (
                   <div className="flex justify-center py-8">
@@ -840,7 +894,6 @@ const updateComplaintState = (id, updates) => {
                 <div ref={commentEndRef} />
               </div>
 
-              {/* Comment input */}
               <div className="flex gap-3 items-end">
                 <Avatar name={currentUser?.name} size={8} />
                 <div className="flex-1 bg-gray-50 border border-gray-200 rounded-2xl overflow-hidden focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-100 transition-all">

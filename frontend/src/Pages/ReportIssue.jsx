@@ -24,7 +24,7 @@ const ReportIssue = () => {
   const fileInputRef = useRef(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState(''); // 'uploading' | 'saving' | ''
+  const [submitStatus, setSubmitStatus] = useState(''); 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -33,8 +33,8 @@ const ReportIssue = () => {
   });
 
   const [position, setPosition] = useState([20.5937, 78.9629]);
-  const [selectedImage, setSelectedImage] = useState(null);   // preview URL
-  const [imageFile, setImageFile] = useState(null);           // actual File object
+  const [selectedImage, setSelectedImage] = useState(null);  
+  const [imageFile, setImageFile] = useState(null);           
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
@@ -42,7 +42,7 @@ const ReportIssue = () => {
     setLoadingAddress(true);
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=en`
       );
       const data = await response.json();
       setFormData(prev => ({ ...prev, address: data.display_name || `${lat}, ${lng}` }));
@@ -52,7 +52,6 @@ const ReportIssue = () => {
     setLoadingAddress(false);
   };
 
-  // Flies the map whenever `position` changes (detect or click)
   function MapController({ center }) {
     const map = useMap();
     React.useEffect(() => {
@@ -137,14 +136,14 @@ const ReportIssue = () => {
     setSubmitting(true);
     setError('');
     try {
-      // Step 1: upload photo to Cloudinary (if any)
+      // upload photo to Cloudinary (if any)
       let photoUrl = '';
       if (imageFile) {
         setSubmitStatus('uploading');
         photoUrl = await uploadImageToCloudinary(imageFile);
       }
 
-      // Step 2: save complaint with photo URL
+      // save complaint with photo URL
       setSubmitStatus('saving');
       await createComplaint({
         title: formData.title,
