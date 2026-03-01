@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from 'lucide-react';
-import { isAuthenticated, getCurrentUser, logout } from '../../services/authService';
+import { isAuthenticated, getCurrentUser, fetchMe, logout } from '../../services/authService';
 
 // SVG Logo mark
 const Logo = () => (
@@ -21,8 +21,34 @@ const NavBar = () => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const loggedIn = isAuthenticated();
-    const user = getCurrentUser();
+    const [user, setUser] = useState(getCurrentUser);
     const userName = user?.name || 'User';
+    const userPhoto = user?.profilePhoto || null;
+
+    // Re-read user from localStorage whenever profile is updated
+    useEffect(() => {
+        const refresh = () => setUser(getCurrentUser());
+        window.addEventListener('userUpdated', refresh);
+        window.addEventListener('storage', refresh);
+        return () => {
+            window.removeEventListener('userUpdated', refresh);
+            window.removeEventListener('storage', refresh);
+        };
+    }, []);
+
+    // Hydrate profilePhoto from backend on mount (in case localStorage is stale)
+    useEffect(() => {
+        if (!isAuthenticated()) return;
+        fetchMe().then(freshUser => {
+            if (freshUser?.profilePhoto) {
+                // Merge profilePhoto into the stored user object
+                const stored = getCurrentUser() || {};
+                const updated = { ...stored, profilePhoto: freshUser.profilePhoto };
+                localStorage.setItem('user', JSON.stringify(updated));
+                setUser(updated);
+            }
+        }).catch(() => { });
+    }, []);
 
     const navLinks = [
         { label: 'Dashboard', path: '/dashboard' },
@@ -62,7 +88,7 @@ const NavBar = () => {
                             className={`text-sm font-semibold tracking-wide transition-colors pb-0.5 border-b-2 ${isActive(link.path)
                                     ? 'text-teal-600 border-teal-500'
                                     : 'text-gray-500 border-transparent hover:text-teal-600 hover:border-teal-300'
-                                }`}
+                                } `}
                         >
                             {link.label}
                         </button>
@@ -78,11 +104,14 @@ const NavBar = () => {
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
                                 className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/70 hover:bg-white transition-all border border-white/60 shadow-sm"
                             >
-                                <div className="w-8 h-8 bg-teal-500 text-white rounded-full flex items-center justify-center font-bold text-xs uppercase">
-                                    {userName.charAt(0)}
+                                <div className="w-8 h-8 bg-teal-500 text-white rounded-full flex items-center justify-center font-bold text-xs uppercase overflow-hidden">
+                                    {userPhoto
+                                        ? <img src={userPhoto} alt={userName} className="w-full h-full object-cover" />
+                                        : userName.charAt(0)
+                                    }
                                 </div>
                                 <span className="text-sm font-bold text-gray-700">{userName}</span>
-                                <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
+                                <ChevronDown size={14} className={`text - gray - 400 transition - transform duration - 200 ${dropdownOpen ? 'rotate-180' : ''} `} />
                             </button>
 
                             {dropdownOpen && (

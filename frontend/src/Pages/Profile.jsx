@@ -104,12 +104,16 @@ const Profile = () => {
     setError('');
 
     try {
-      await updateProfile({
+      const updatedUser = await updateProfile({
         name: formData.name,
         email: formData.email,
         location: formData.location,
-        profilePhoto: formData.profilePicUrl || formData.profilePic || undefined,
+        profilePhoto: formData.profilePicUrl || undefined,
       });
+      // Refresh avatar preview from the saved URL
+      if (updatedUser?.profilePhoto) {
+        setFormData(prev => ({ ...prev, profilePic: updatedUser.profilePhoto, profilePicUrl: updatedUser.profilePhoto }));
+      }
       showToast('Profile updated successfully!');
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to update profile.');

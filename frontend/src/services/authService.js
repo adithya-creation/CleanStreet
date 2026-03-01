@@ -56,6 +56,8 @@ export const updateProfile = async ({ name, email, location, profilePhoto }) => 
     // Backend returns a new token with updated claims
     localStorage.setItem('token', res.data.token);
     localStorage.setItem('user', JSON.stringify(res.data.user));
+    // Notify same-tab listeners (e.g. NavBar avatar) to re-read from localStorage
+    window.dispatchEvent(new Event('userUpdated'));
     return res.data.user;
 };
 
