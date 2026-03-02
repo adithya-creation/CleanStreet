@@ -183,6 +183,66 @@ const NavBar = () => {
                             {link.label}
                         </button>
                     ))}
+                    {loggedIn ? (
+                        /* Logged in: user avatar + dropdown */
+                        <div className="relative">
+                            <button
+                                onClick={() => setDropdownOpen(!dropdownOpen)}
+                                className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/70 hover:bg-white transition-all border border-white/60 shadow-sm"
+                            >
+                                <div className="w-8 h-8 bg-teal-500 text-white rounded-full flex items-center justify-center font-bold text-xs uppercase overflow-hidden">
+                                    {userPhoto
+                                        ? <img src={userPhoto} alt={userName} className="w-full h-full object-cover" />
+                                        : userName.charAt(0)
+                                    }
+                                </div>
+                                <span className="text-sm font-bold text-gray-700">{userName}</span>
+                                <ChevronDown size={14} className={`text - gray - 400 transition - transform duration - 200 ${dropdownOpen ? 'rotate-180' : ''} `} />
+                            </button>
+
+                            {dropdownOpen && (
+                                <div className="absolute right-0 mt-3 w-52 bg-white/90 backdrop-blur-md rounded-2xl shadow-xl border border-white/60 py-2 z-[60]">
+                                    <button
+                                        onClick={() => { setDropdownOpen(false); navigate('/dashboard'); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-teal-50 hover:text-teal-600 transition-colors"
+                                    >
+                                        <LayoutDashboard size={16} /> Dashboard
+                                    </button>
+                                    <button
+                                        onClick={() => { setDropdownOpen(false); navigate('/profile'); }}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-gray-600 hover:bg-teal-50 hover:text-teal-600 transition-colors"
+                                    >
+                                        <User size={16} /> Edit Profile
+                                    </button>
+
+                                    <div className="h-px bg-gray-100 my-1" />
+
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-rose-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+                                    >
+                                        <LogOut size={16} /> Logout
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        /* Not logged in: Login + Get Started */
+                        <>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className="text-sm font-bold text-teal-600 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors"
+                            >
+                                Login
+                            </button>
+                            <button
+                                onClick={() => navigate('/register')}
+                                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-5 py-2 rounded-lg shadow-md shadow-red-200 transition-all hover:scale-[1.03]"
+                            >
+                                Get Started
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </nav>
