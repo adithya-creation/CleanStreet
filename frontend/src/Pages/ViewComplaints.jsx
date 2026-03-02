@@ -770,6 +770,36 @@ const ViewComplaints = () => {
                     {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
                   </p>
                 </div>
+                {/* Assigned volunteer */}
+                {(selected.status === 'in_review' || selected.status === 'resolved') && selected.assignedTo && (
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Assigned To</label>
+                    <div className="flex items-center gap-3">
+                      {selected.assignedTo?.profilePhoto ? (
+                        <img
+                          src={selected.assignedTo.profilePhoto}
+                          alt={selected.assignedTo.name}
+                          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-amber-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 ring-2 ring-amber-200">
+                          <span className="text-white font-black text-sm">
+                            {initials(selected.assignedTo?.name || 'V')}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-black text-gray-800">
+                          {selected.assignedTo?.name ||
+                            (selected.assignedTo === currentUser?.id ? currentUser?.name : 'A Volunteer')}
+                        </p>
+                        {selected.assignedTo?.email && (
+                          <p className="text-xs text-gray-400">{selected.assignedTo.email}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center gap-5 pt-1">
                   <button
                     onClick={() => handleVote(selected._id, 'like')}
