@@ -8,7 +8,10 @@ import { getMyComplaints } from '../services/complaintService';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [user] = useState(getCurrentUser() || { name: 'User' });
+
+  const currentUser = getCurrentUser() || { name: 'User' };
+  const role = currentUser?.role;
+
   const [reports, setReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
 
@@ -29,14 +32,60 @@ const Dashboard = () => {
   const inProgress = reports.filter(r => r.status === 'in_review').length;
   const resolved = reports.filter(r => r.status === 'resolved').length;
 
+  /* VOLUNTEER DASHBOARD*/
+  if (role === 'volunteer') {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
+        <NavBar />
+
+        <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
+          <header className="mb-12 text-left">
+            <h1 className="text-4xl font-black tracking-tight text-gray-800">
+              Welcome, {currentUser.name?.split(' ')[0]}
+            </h1>
+            <p className="text-gray-500 font-medium mt-1">
+              Manage and resolve community complaints
+            </p>
+          </header>
+
+          <div className="bg-white/40 backdrop-blur-md rounded-[40px] p-16 shadow-sm border border-white/60 text-center">
+            <h3 className="text-3xl font-black text-teal-600 mb-4 tracking-tight">
+              Volunteer Dashboard
+            </h3>
+
+            <p className="text-gray-500 mb-8">
+              View complaints, accept tasks, and resolve issues.
+            </p>
+
+            <button
+              onClick={() => navigate('/complaints')}
+              className="bg-red-400 hover:bg-red-500 text-white px-10 py-4 rounded-2xl font-bold shadow-lg"
+            >
+              View Complaints
+            </button>
+          </div>
+        </div>
+
+        <Footer />
+      </div>
+    );
+  }
+
+
+  /* USER DASHBOARD */
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
       <NavBar />
 
       <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
         <header className="mb-12 text-left">
-          <h1 className="text-4xl font-black tracking-tight text-gray-800">Welcome, {user.name?.split(' ')[0]}</h1>
-          <p className="text-gray-500 font-medium mt-1">Ready to make your neighborhood better?</p>
+          <h1 className="text-4xl font-black tracking-tight text-gray-800">
+            Welcome, {currentUser.name?.split(' ')[0]}
+          </h1>
+          <p className="text-gray-500 font-medium mt-1">
+            Ready to make your neighborhood better?
+          </p>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
@@ -50,7 +99,9 @@ const Dashboard = () => {
             <div className="bg-white/50 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8 transform rotate-3 transition-transform hover:rotate-0">
               <ClipboardList className="text-teal-300" size={48} />
             </div>
-            <h3 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">No activity reported yet</h3>
+            <h3 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">
+              No activity reported yet
+            </h3>
             <p className="text-gray-500 max-w-md mx-auto mb-10 text-lg leading-relaxed">
               Your neighborhood is looking clean! If you spot an issue, click below to let us know.
             </p>
@@ -65,7 +116,10 @@ const Dashboard = () => {
           <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm overflow-hidden">
             <div className="p-6 border-b border-white/60 flex items-center justify-between">
               <h2 className="font-black text-gray-800 text-lg">Your Reports</h2>
-              <button onClick={() => navigate('/report')} className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all">
+              <button
+                onClick={() => navigate('/report')}
+                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all"
+              >
                 + New Report
               </button>
             </div>
@@ -74,7 +128,9 @@ const Dashboard = () => {
                 <div key={report._id} className="p-5 flex items-center justify-between">
                   <div>
                     <p className="font-bold text-gray-800">{report.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{report.address || 'No address'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {report.address || 'No address'}
+                    </p>
                   </div>
                   <StatusBadge status={report.status} />
                 </div>
@@ -91,7 +147,9 @@ const Dashboard = () => {
 
 const StatCard = ({ label, val }) => (
   <div className="bg-white/40 backdrop-blur-md p-10 rounded-[40px] shadow-sm border border-white/60 transition-all hover:border-teal-200 group">
-    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 group-hover:text-teal-500 transition-colors">{label}</p>
+    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 group-hover:text-teal-500 transition-colors">
+      {label}
+    </p>
     <p className="text-7xl font-black text-gray-800 leading-none">{val}</p>
   </div>
 );
@@ -102,7 +160,11 @@ const StatusBadge = ({ status }) => {
     in_review: 'bg-yellow-50 text-yellow-600',
     resolved: 'bg-teal-50 text-teal-600',
   };
-  const labels = { received: 'Received', in_review: 'In Review', resolved: 'Resolved' };
+  const labels = {
+    received: 'Received',
+    in_review: 'In Review',
+    resolved: 'Resolved',
+  };
   return (
     <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${styles[status] || 'bg-gray-50 text-gray-500'}`}>
       {labels[status] || status}
