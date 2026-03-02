@@ -169,6 +169,7 @@ router.get('/complaints', auth, async (req, res) => {
   try {
     const complaints = await Complaint.find()
       .populate('user', 'name email')
+      .populate('assignedTo', 'name email profilePhoto')
       .sort({ createdAt: -1 });
 
     // Attach vote counts + current user's vote for each complaint
@@ -204,6 +205,7 @@ router.get('/complaints/mine', auth, async (req, res) => {
   try {
     const complaints = await Complaint.find({ user: req.user.id })
       .populate('user', 'name email')
+      .populate('assignedTo', 'name email profilePhoto')
       .sort({ createdAt: -1 });
 
     const complaintIds = complaints.map(c => c._id);
@@ -512,7 +514,7 @@ router.get('/volunteer/complaints/nearby', auth, isVolunteer, async (req, res) =
       },
     })
       .populate('user', 'name email')
-      .populate('assignedTo', 'name email');
+      .populate('assignedTo', 'name email profilePhoto');
 
     console.log(`[Volunteer:GET /volunteer/complaints/nearby] found ${complaints.length} complaints within ${radius}km`);
     return res.json({ success: true, complaints });
@@ -545,7 +547,7 @@ router.post('/complaints/:id/accept', auth, isVolunteer, async (req, res) => {
     complaint.status = 'in_review';
     complaint.assignedTo = req.user.id;
     await complaint.save();
-    await complaint.populate('assignedTo', 'name email');
+    await complaint.populate('assignedTo', 'name email profilePhoto');
     await complaint.populate('user', 'name email');
 
     console.log(`[Volunteer:Accept] ✅ Complaint "${complaint.title}" accepted by ${req.user.email} → status: in_review`);
@@ -623,7 +625,7 @@ router.patch('/complaints/:id/resolve', auth, isVolunteer, async (req, res) => {
 
     complaint.status = 'resolved';
     await complaint.save();
-    await complaint.populate('assignedTo', 'name email');
+    await complaint.populate('assignedTo', 'name email profilePhoto');
     await complaint.populate('user', 'name email');
 
     console.log(`[Volunteer:Resolve] ✅ Complaint "${complaint.title}" resolved by ${req.user.email}`);
