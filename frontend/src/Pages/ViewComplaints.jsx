@@ -87,7 +87,7 @@ const ViewComplaints = () => {
   /* ── state ── */
   const [tab, setTab] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-
+  
   // --- Filter states ---
   const [typeFilter, setTypeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
@@ -162,12 +162,12 @@ const ViewComplaints = () => {
 
   /* ── Filter Logic ── */
   const base = tab === 'mine' ? myComplaints : allComplaints;
-
+  
   const filtered = base.filter(c => {
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
     const matchesType = typeFilter === 'all' || c.type === typeFilter;
     const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
-
+    
     // Proximity Filter for Volunteers
     let matchesProximity = true;
     if (tab === 'near' && userLocation) {
@@ -294,32 +294,42 @@ const ViewComplaints = () => {
               {loading ? 'Loading…' : `${allComplaints.length} issue${allComplaints.length !== 1 ? 's' : ''} reported by the community`}
             </p>
           </div>
-          <button
-            onClick={() => navigate('/report')}
-            className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all text-sm"
-          >
-            <Plus className="h-4 w-4" /> Report Issue
-          </button>
+          {role !== 'volunteer' && (
+  <button
+    onClick={() => navigate('/report')}
+    className="flex items-center gap-2 bg-[#F87171] hover:bg-[#EF4444] text-white font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all text-sm"
+  >
+    <Plus className="h-4 w-4" /> Report Issue
+  </button>
+)}
         </div>
 
         {/* ── Tab switcher ── */}
         <div className="flex gap-1 mb-6 p-1 bg-white/60 backdrop-blur-sm rounded-2xl border border-white shadow-sm w-fit">
           {[
-            { key: 'all', label: 'All Complaints', count: allComplaints.length },
-            { key: 'mine', label: 'Your Complaints', count: myComplaints.length },
-            ...(role === 'volunteer' ? [{ key: 'near', label: 'Near Me', icon: <Navigation className="w-3.5 h-3.5" /> }] : [])
-          ].map(t => (
+  { key: 'all', label: 'All Complaints', count: allComplaints.length },
+
+  
+  ...(role !== 'volunteer'
+    ? [{ key: 'mine', label: 'Your Complaints', count: myComplaints.length }]
+    : []),
+
+  
+  ...(role === 'volunteer'
+    ? [{ key: 'near', label: 'Near Me', icon: <Navigation className="w-3.5 h-3.5" /> }]
+    : [])
+].map(t => (
             <button
               key={t.key}
-              onClick={() => {
+              onClick={() => { 
                 if (t.key === 'near') {
                   handleNearMeTab();
                 } else {
                   setTab(t.key);
                 }
-                setStatusFilter('all');
-                setTypeFilter('all');
-                setPriorityFilter('all');
+                setStatusFilter('all'); 
+                setTypeFilter('all'); 
+                setPriorityFilter('all'); 
               }}
               className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key
                 ? 'bg-teal-500 text-white shadow-md shadow-teal-200/60'
@@ -336,36 +346,15 @@ const ViewComplaints = () => {
           ))}
         </div>
 
-        {/* ── Status filters ── */}
-        <div className="flex gap-2 mb-5 flex-wrap">
-          {[
-            { key: 'all', label: 'All Status' },
-            { key: 'received', label: 'Received' },
-            { key: 'in_review', label: 'In Review' },
-            { key: 'resolved', label: 'Resolved' },
-          ].map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => setStatusFilter(key)}
-              className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${statusFilter === key
-                ? 'bg-gray-800 text-white border-gray-800 shadow-sm'
-                : 'bg-white/70 text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'
-                }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
         {/* ── Category & Priority Filters ── */}
         <div className="flex flex-wrap items-center gap-3 mb-8 p-4 bg-white/50 backdrop-blur-md rounded-2xl border border-white/80 shadow-sm">
           <div className="flex items-center gap-2 text-gray-400 mr-2 shrink-0">
             <Filter className="h-4 w-4" />
             <span className="text-[10px] font-black uppercase tracking-widest">Filter By</span>
           </div>
-
+          
           <div className="relative">
-            <select
+            <select 
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               className="appearance-none bg-white border border-gray-100 text-gray-700 text-xs font-bold px-4 py-2 pr-8 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 transition-all cursor-pointer shadow-sm"
@@ -379,7 +368,7 @@ const ViewComplaints = () => {
           </div>
 
           <div className="relative">
-            <select
+            <select 
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
               className="appearance-none bg-white border border-gray-100 text-gray-700 text-xs font-bold px-4 py-2 pr-8 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 transition-all cursor-pointer shadow-sm"
@@ -392,8 +381,22 @@ const ViewComplaints = () => {
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
           </div>
 
+          <div className="relative">
+    <select 
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value)}
+    className="appearance-none bg-white border border-gray-100 text-gray-700 text-xs font-bold px-4 py-2 pr-8 rounded-xl outline-none focus:ring-2 focus:ring-teal-400 transition-all cursor-pointer shadow-sm"
+  >
+    <option value="all">All Status</option>
+    <option value="received">Received</option>
+    <option value="in_review">In Review</option>
+    <option value="resolved">Resolved</option>
+  </select>
+  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3 w-3 text-gray-400 pointer-events-none" />
+</div>
+
           {(typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all') && (
-            <button
+            <button 
               onClick={() => { setTypeFilter('all'); setPriorityFilter('all'); setStatusFilter('all'); }}
               className="text-[10px] font-black text-rose-500 uppercase hover:text-rose-600 transition-colors ml-auto px-2"
             >
@@ -421,18 +424,18 @@ const ViewComplaints = () => {
             </div>
             <h3 className="text-2xl font-black text-gray-800 mb-2">No complaints found</h3>
             <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
-              {tab === 'near' ? `There are no reported issues within ${PROXIMITY_THRESHOLD}km of your location.` :
-                typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all'
-                  ? "We couldn't find any complaints matching your active filters."
-                  : tab === 'mine' ? "You haven't reported anything yet." : "No complaints have been reported yet."}
+              {tab === 'near' ? `There are no reported issues within ${PROXIMITY_THRESHOLD}km of your location.` : 
+               typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all' 
+                ? "We couldn't find any complaints matching your active filters." 
+                : tab === 'mine' ? "You haven't reported anything yet." : "No complaints have been reported yet."}
             </p>
             {(typeFilter !== 'all' || priorityFilter !== 'all' || statusFilter !== 'all' || tab === 'near') ? (
-              <button
-                onClick={() => { setTab('all'); setTypeFilter('all'); setPriorityFilter('all'); setStatusFilter('all'); }}
-                className="bg-teal-500 text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
-              >
-                Clear Filters & View All
-              </button>
+               <button
+               onClick={() => { setTab('all'); setTypeFilter('all'); setPriorityFilter('all'); setStatusFilter('all'); }}
+               className="bg-teal-500 text-white font-bold px-8 py-3 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
+             >
+               Clear Filters & View All
+             </button>
             ) : (
               <button
                 onClick={() => navigate('/report')}
@@ -528,8 +531,6 @@ const ViewComplaints = () => {
                         {fmtDate(c.createdAt)}
                       </span>
                     </div>
-
-
 
                     {mine && (
                       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
@@ -643,7 +644,7 @@ const ViewComplaints = () => {
                     </button>
                   </>
                 )}
-
+                
                 {role === 'volunteer' && (
                   <>
                     {selected.status === 'received' && (
@@ -769,37 +770,6 @@ const ViewComplaints = () => {
                     {fmtDate(selected.createdAt)} at {fmtTime(selected.createdAt)}
                   </p>
                 </div>
-
-                {/* Assigned volunteer */}
-                {(selected.status === 'in_review' || selected.status === 'resolved') && selected.assignedTo && (
-                  <div>
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Assigned To</label>
-                    <div className="flex items-center gap-3">
-                      {selected.assignedTo?.profilePhoto ? (
-                        <img
-                          src={selected.assignedTo.profilePhoto}
-                          alt={selected.assignedTo.name}
-                          className="w-10 h-10 rounded-full object-cover shrink-0 ring-2 ring-amber-200"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shrink-0 ring-2 ring-amber-200">
-                          <span className="text-white font-black text-sm">
-                            {initials(selected.assignedTo?.name || 'V')}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm font-black text-gray-800">
-                          {selected.assignedTo?.name ||
-                            (selected.assignedTo === currentUser?.id ? currentUser?.name : 'A Volunteer')}
-                        </p>
-                        {selected.assignedTo?.email && (
-                          <p className="text-xs text-gray-400">{selected.assignedTo.email}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
                 <div className="flex items-center gap-5 pt-1">
                   <button
                     onClick={() => handleVote(selected._id, 'like')}

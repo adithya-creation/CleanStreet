@@ -21,11 +21,13 @@ const NavBar = () => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
 
     const loggedIn = isAuthenticated();
-    const [user, setUser] = useState(getCurrentUser);
+
+    const [user, setUser] = useState(getCurrentUser());
+    const role = user?.role; // 'user' | 'volunteer' | 'admin'
+
     const userName = user?.name || 'User';
     const userPhoto = user?.profilePhoto || null;
 
-    // Re-read user from localStorage whenever profile is updated
     useEffect(() => {
         const refresh = () => setUser(getCurrentUser());
         window.addEventListener('userUpdated', refresh);
@@ -36,12 +38,10 @@ const NavBar = () => {
         };
     }, []);
 
-    // Hydrate profilePhoto from backend on mount (in case localStorage is stale)
     useEffect(() => {
         if (!isAuthenticated()) return;
         fetchMe().then(freshUser => {
             if (freshUser?.profilePhoto) {
-                // Merge profilePhoto into the stored user object
                 const stored = getCurrentUser() || {};
                 const updated = { ...stored, profilePhoto: freshUser.profilePhoto };
                 localStorage.setItem('user', JSON.stringify(updated));
@@ -52,7 +52,11 @@ const NavBar = () => {
 
     const navLinks = [
         { label: 'Dashboard', path: '/dashboard' },
-        { label: 'Report Issue', path: '/report' },
+
+        ...(role !== 'volunteer'
+            ? [{ label: 'Report Issue', path: '/report' }]
+            : []),
+
         { label: 'View Complaints', path: '/complaints' },
     ];
 
@@ -98,7 +102,6 @@ const NavBar = () => {
                 {/* Desktop Right Side */}
                 <div className="hidden md:flex items-center gap-3">
                     {loggedIn ? (
-                        /* Logged in: user avatar + dropdown */
                         <div className="relative">
                             <button
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
@@ -111,7 +114,7 @@ const NavBar = () => {
                                     }
                                 </div>
                                 <span className="text-sm font-bold text-gray-700">{userName}</span>
-                                <ChevronDown size={14} className={`text - gray - 400 transition - transform duration - 200 ${dropdownOpen ? 'rotate-180' : ''} `} />
+                                <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${dropdownOpen ? 'rotate-180' : ''}`} />
                             </button>
 
                             {dropdownOpen && (
@@ -138,23 +141,7 @@ const NavBar = () => {
                                 </div>
                             )}
                         </div>
-                    ) : (
-                        /* Not logged in: Login + Get Started */
-                        <>
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="text-sm font-bold text-teal-600 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors"
-                            >
-                                Login
-                            </button>
-                            <button
-                                onClick={() => navigate('/register')}
-                                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-5 py-2 rounded-lg shadow-md shadow-red-200 transition-all hover:scale-[1.03]"
-                            >
-                                Get Started
-                            </button>
-                        </>
-                    )}
+                    ) : null}
                 </div>
 
                 {/* Mobile Toggle */}
@@ -179,31 +166,6 @@ const NavBar = () => {
                             {link.label}
                         </button>
                     ))}
-
-                    <div className="border-t border-white/60 pt-3 mt-1 flex flex-col gap-2">
-                        {loggedIn ? (
-                            <>
-                                <p className="text-xs text-gray-400 font-semibold uppercase tracking-widest">Signed in as {userName}</p>
-                                <button onClick={() => { navigate('/profile'); setMenuOpen(false); }} className="text-sm font-semibold text-gray-600 hover:text-teal-600 text-left">✏️ Edit Profile</button>
-                                <button onClick={handleLogout} className="text-sm font-semibold text-red-500 text-left">🚪 Logout</button>
-                            </>
-                        ) : (
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => { navigate('/login'); setMenuOpen(false); }}
-                                    className="flex-1 text-sm font-bold text-teal-600 border border-teal-400 py-2 rounded-lg hover:bg-teal-50 transition-colors"
-                                >
-                                    Login
-                                </button>
-                                <button
-                                    onClick={() => { navigate('/register'); setMenuOpen(false); }}
-                                    className="flex-1 bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold py-2 rounded-lg shadow-md shadow-red-200 transition-colors"
-                                >
-                                    Get Started
-                                </button>
-                            </div>
-                        )}
-                    </div>
                 </div>
             )}
         </nav>
