@@ -4,7 +4,7 @@ import { ClipboardList } from 'lucide-react';
 import NavBar from '../Components/common/NavBar';
 import Footer from '../Components/common/Footer';
 import { getCurrentUser } from '../services/authService';
-import { getMyComplaints } from '../services/complaintService';
+import { getMyComplaints, getAllComplaints } from '../services/complaintService';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -14,63 +14,108 @@ const Dashboard = () => {
 
   const [reports, setReports] = useState([]);
   const [loadingReports, setLoadingReports] = useState(true);
+  const [allComplaints, setAllComplaints] = useState([]);
 
   useEffect(() => {
-    const fetchReports = async () => {
-      try {
+  const fetchData = async () => {
+    setLoadingReports(true);
+    try {
+      if (role === 'volunteer') {
+        const data = await getAllComplaints();
+        setAllComplaints(data.complaints || []);
+      } else {
         const data = await getMyComplaints();
         setReports(data.complaints || []);
-      } catch {
-        setReports([]);
-      } finally {
-        setLoadingReports(false);
       }
-    };
-    fetchReports();
-  }, []);
+    } catch {
+      setReports([]);
+      setAllComplaints([]);
+    } finally {
+      setLoadingReports(false);
+    }
+  };
+
+  fetchData();
+}, [role]);
+
+  const volunteerId = currentUser?._id || currentUser?.id;
+
+const totalComplaints = allComplaints.length;
+
+const assignedToMe = allComplaints.filter(
+  c => c.assignedTo?._id === volunteerId || c.assignedTo === volunteerId
+);
+
+const resolvedByMe = assignedToMe.filter(
+  c => c.status === 'resolved'
+);
+
+const pendingByMe = assignedToMe.filter(
+  c => c.status !== 'resolved'
+);
 
   const inProgress = reports.filter(r => r.status === 'in_review').length;
   const resolved = reports.filter(r => r.status === 'resolved').length;
 
-  /* VOLUNTEER DASHBOARD*/
   if (role === 'volunteer') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
-        <NavBar />
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
+      <NavBar />
 
-        <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
-          <header className="mb-12 text-left">
-            <h1 className="text-4xl font-black tracking-tight text-gray-800">
-              Welcome, {currentUser.name?.split(' ')[0]}
-            </h1>
-            <p className="text-gray-500 font-medium mt-1">
-              Manage and resolve community complaints
-            </p>
-          </header>
+      <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
+        <header className="mb-12 text-left">
+          <h1 className="text-4xl font-black tracking-tight text-gray-800">
+            Welcome, {currentUser.name?.split(' ')[0]}
+          </h1>
+          <p className="text-gray-500 font-medium mt-1">
+            Manage and resolve community complaints
+          </p>
+        </header>
 
-          <div className="bg-white/40 backdrop-blur-md rounded-[40px] p-16 shadow-sm border border-white/60 text-center">
-            <h3 className="text-3xl font-black text-teal-600 mb-4 tracking-tight">
-              Volunteer Dashboard
-            </h3>
-
-            <p className="text-gray-500 mb-8">
-              View complaints, accept tasks, and resolve issues.
-            </p>
-
-            <button
-              onClick={() => navigate('/complaints')}
-              className="bg-red-400 hover:bg-red-500 text-white px-10 py-4 rounded-2xl font-bold shadow-lg"
-            >
-              View Complaints
-            </button>
-          </div>
+       {/* VOLUNTEER STATS */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
+         <StatCard label="Total Complaints" val={loadingReports ? '...' : allComplaints.length} />
+<StatCard label="Assigned to Me" val={loadingReports ? '...' : assignedToMe.length} />
+<StatCard label="Resolved by Me" val={loadingReports ? '...' : resolvedByMe.length} />
+<StatCard label="Pending" val={loadingReports ? '...' : pendingByMe.length} />
         </div>
 
-        <Footer />
-      </div>
-    );
-  }
+        {/* ASSIGNED COMPLAINTS */}
+        <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-white/60 flex items-center justify-between">
+            <h2 className="font-black text-gray-800 text-lg">My Assigned Complaints</h2>
+            <button
+              onClick={() => navigate('/complaints')}
+              className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md"
+            >
+              View All
+            </button>
+          </div>
 
+          <div className="divide-y divide-white/60">
+           {assignedToMe.length === 0 ? (
+  <p className="p-6 text-center text-gray-500">
+    No complaints assigned yet
+  </p>
+) : (
+  assignedToMe.map(c => (
+    <div key={c._id} className="p-5 flex justify-between">
+      <div>
+        <p className="font-bold text-gray-800">{c.title}</p>
+        <p className="text-xs text-gray-500">{c.address || 'No address'}</p>
+      </div>
+      <StatusBadge status={c.status} />
+    </div>
+  ))
+)}
+          </div>
+        </div>
+      </div>
+
+      <Footer />
+    </div>
+  );
+}
 
   /* USER DASHBOARD */
 
