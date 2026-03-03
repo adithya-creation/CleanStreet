@@ -1,174 +1,113 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ClipboardList } from 'lucide-react';
-import NavBar from '../Components/common/NavBar';
-import Footer from '../Components/common/Footer';
-import { getCurrentUser } from '../services/authService';
-import { getMyComplaints } from '../services/complaintService';
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+import "./Dashboard.css";
 
 const Dashboard = () => {
-  const navigate = useNavigate();
+  const [myComplaints, setMyComplaints] = useState([]);
+  const [allComplaints, setAllComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const currentUser = getCurrentUser() || { name: 'User' };
-  const role = currentUser?.role;
-
-  const [reports, setReports] = useState([]);
-  const [loadingReports, setLoadingReports] = useState(true);
+  const token = localStorage.getItem("token");
 
   useEffect(() => {
-    const fetchReports = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getMyComplaints();
-        setReports(data.complaints || []);
-      } catch {
-        setReports([]);
+        const [allRes, myRes] = await Promise.all([
+          axios.get("http://localhost:5000/api/complaints"),
+          axios.get(
+            "http://localhost:5000/api/complaints/my-accepted",
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          ),
+        ]);
+
+        setAllComplaints(allRes.data);
+        setMyComplaints(myRes.data);
+      } catch (error) {
+        console.log(error);
       } finally {
-        setLoadingReports(false);
+        setLoading(false);
       }
     };
-    fetchReports();
-  }, []);
 
-  const inProgress = reports.filter(r => r.status === 'in_review').length;
-  const resolved = reports.filter(r => r.status === 'resolved').length;
+    fetchData();
+  }, [token]);
 
-  /* VOLUNTEER DASHBOARD*/
-  if (role === 'volunteer') {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
-        <NavBar />
+  const total = allComplaints.length;
+  const pending = allComplaints.filter(c => c.status === "Pending").length;
+  const accepted = allComplaints.filter(c => c.status === "Accepted").length;
+  const resolved = allComplaints.filter(c => c.status === "Resolved").length;
 
-        <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
-          <header className="mb-12 text-left">
-            <h1 className="text-4xl font-black tracking-tight text-gray-800">
-              Welcome, {currentUser.name?.split(' ')[0]}
-            </h1>
-            <p className="text-gray-500 font-medium mt-1">
-              Manage and resolve community complaints
-            </p>
-          </header>
-
-          <div className="bg-white/40 backdrop-blur-md rounded-[40px] p-16 shadow-sm border border-white/60 text-center">
-            <h3 className="text-3xl font-black text-teal-600 mb-4 tracking-tight">
-              Volunteer Dashboard
-            </h3>
-
-            <p className="text-gray-500 mb-8">
-              View complaints, accept tasks, and resolve issues.
-            </p>
-
-            <button
-              onClick={() => navigate('/complaints')}
-              className="bg-red-400 hover:bg-red-500 text-white px-10 py-4 rounded-2xl font-bold shadow-lg"
-            >
-              View Complaints
-            </button>
-          </div>
-        </div>
-
-        <Footer />
-      </div>
-    );
-  }
-
-
-  /* USER DASHBOARD */
+  if (loading) return <div className="dashboard">Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] font-sans text-gray-800 flex flex-col">
-      <NavBar />
+    <div className="dashboard">
+      <h2 className="dashboard-title">Volunteer Dashboard</h2>
 
-      <div className="flex-1 max-w-6xl w-full mx-auto p-8 pt-12">
-        <header className="mb-12 text-left">
-          <h1 className="text-4xl font-black tracking-tight text-gray-800">
-            Welcome, {currentUser.name?.split(' ')[0]}
-          </h1>
-          <p className="text-gray-500 font-medium mt-1">
-            Ready to make your neighborhood better?
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-          <StatCard label="Total Reports" val={loadingReports ? '...' : reports.length} />
-          <StatCard label="In Progress" val={loadingReports ? '...' : inProgress} />
-          <StatCard label="Fixed Issues" val={loadingReports ? '...' : resolved} />
+      {/* ===== Stats Cards ===== */}
+      <div className="stats-container">
+        <div className="stat-card">
+          <h4>Total</h4>
+          <p>{total}</p>
         </div>
-
-        {!loadingReports && reports.length === 0 ? (
-          <div className="bg-white/40 backdrop-blur-md rounded-[40px] p-16 shadow-sm border border-white/60 text-center">
-            <div className="bg-white/50 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8 transform rotate-3 transition-transform hover:rotate-0">
-              <ClipboardList className="text-teal-300" size={48} />
-            </div>
-            <h3 className="text-3xl font-black text-gray-800 mb-4 tracking-tight">
-              No activity reported yet
-            </h3>
-            <p className="text-gray-500 max-w-md mx-auto mb-10 text-lg leading-relaxed">
-              Your neighborhood is looking clean! If you spot an issue, click below to let us know.
-            </p>
-            <button
-              onClick={() => navigate('/report')}
-              className="bg-[#F87171] hover:bg-[#EF4444] text-white px-12 py-5 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-lg shadow-red-200 text-sm tracking-widest uppercase"
-            >
-              Create New Report +
-            </button>
-          </div>
-        ) : (
-          <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-white/60 flex items-center justify-between">
-              <h2 className="font-black text-gray-800 text-lg">Your Reports</h2>
-              <button
-                onClick={() => navigate('/report')}
-                className="bg-[#F87171] hover:bg-[#EF4444] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-md shadow-red-200 transition-all"
-              >
-                + New Report
-              </button>
-            </div>
-            <div className="divide-y divide-white/60">
-              {reports.map((report) => (
-                <div key={report._id} className="p-5 flex items-center justify-between">
-                  <div>
-                    <p className="font-bold text-gray-800">{report.title}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      {report.address || 'No address'}
-                    </p>
-                  </div>
-                  <StatusBadge status={report.status} />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <div className="stat-card pending">
+          <h4>Pending</h4>
+          <p>{pending}</p>
+        </div>
+        <div className="stat-card accepted">
+          <h4>Accepted</h4>
+          <p>{accepted}</p>
+        </div>
+        <div className="stat-card resolved">
+          <h4>Resolved</h4>
+          <p>{resolved}</p>
+        </div>
       </div>
 
-      <Footer />
+      {/* ===== My Accepted Complaints ===== */}
+      <div className="section">
+        <h3>My Accepted Complaints</h3>
+        <div className="complaints-grid">
+          {myComplaints.length === 0 ? (
+            <p>No complaints accepted yet.</p>
+          ) : (
+            myComplaints.map((complaint) => (
+              <div className="complaint-card" key={complaint._id}>
+                <h4>{complaint.title}</h4>
+                <p>{complaint.description}</p>
+                <span className={`status ${complaint.status.toLowerCase()}`}>
+                  {complaint.status}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* ===== All Complaints ===== */}
+      <div className="section">
+        <h3>All Complaints</h3>
+        <div className="complaints-grid">
+          {allComplaints.map((complaint) => (
+            <div className="complaint-card" key={complaint._id}>
+              <h4>{complaint.title}</h4>
+              <p>{complaint.description}</p>
+
+              <span className={`status ${complaint.status.toLowerCase()}`}>
+                {complaint.status}
+              </span>
+
+              {complaint.acceptedBy && (
+                <p className="accepted-by">
+                  Accepted by: {complaint.acceptedBy.name}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
-  );
-};
-
-const StatCard = ({ label, val }) => (
-  <div className="bg-white/40 backdrop-blur-md p-10 rounded-[40px] shadow-sm border border-white/60 transition-all hover:border-teal-200 group">
-    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400 mb-4 group-hover:text-teal-500 transition-colors">
-      {label}
-    </p>
-    <p className="text-7xl font-black text-gray-800 leading-none">{val}</p>
-  </div>
-);
-
-const StatusBadge = ({ status }) => {
-  const styles = {
-    received: 'bg-blue-50 text-blue-600',
-    in_review: 'bg-yellow-50 text-yellow-600',
-    resolved: 'bg-teal-50 text-teal-600',
-  };
-  const labels = {
-    received: 'Received',
-    in_review: 'In Review',
-    resolved: 'Resolved',
-  };
-  return (
-    <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider ${styles[status] || 'bg-gray-50 text-gray-500'}`}>
-      {labels[status] || status}
-    </span>
   );
 };
 
