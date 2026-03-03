@@ -87,3 +87,9 @@ export const getVolunteerStats = () =>
 // Nearby complaints
 export const getNearbyComplaints = (lat, lng, radius = 10) =>
   api.get(`/volunteer/complaints/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
+
+//Get all complaints (for volunteers)
+export const getAllComplaints = async () => {
+  const res = await api.get('/complaints');
+  return res.data;
+};

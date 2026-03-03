@@ -564,7 +564,7 @@ const ViewComplaints = () => {
                             Accept
                           </button>
                         )}
-                        {c.status === 'in_review' && c.assignedTo === currentUser?.id && (
+                        {c.status === 'in_review' && (c.assignedTo === currentUser?.id || c.assignedTo?._id === currentUser?.id) && (
                           <>
                             <button
                               onClick={e => {
@@ -657,7 +657,7 @@ const ViewComplaints = () => {
                         Accept
                       </button>
                     )}
-                    {selected.status === 'in_review' && selected.assignedTo === currentUser?.id && (
+                    {selected.status === 'in_review' && (selected.assignedTo === currentUser?.id || selected.assignedTo?._id === currentUser?.id) && (
                       <>
                         <button
                           onClick={() => resolveComplaint(selected._id).then(() => {
