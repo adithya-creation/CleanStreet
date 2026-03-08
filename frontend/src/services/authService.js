@@ -66,3 +66,9 @@ export const changePassword = async ({ currentPassword, newPassword }) => {
     const res = await api.patch('/me/password', { currentPassword, newPassword });
     return res.data;
 };
+
+// Admin-only: Get all users (for admin dashboard)
+export const getAllUsers = async () => {
+  const res = await api.get("/users");
+  return res.data.users;
+};
