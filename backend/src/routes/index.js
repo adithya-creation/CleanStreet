@@ -164,6 +164,28 @@ router.patch('/me/password', auth, async (req, res) => {
   }
 });
 
+// ─── Admin: Get all users ─────────────────────────────
+router.get('/users', auth, async (req, res) => {
+  try {
+
+    // Only admin can access
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const users = await User.find().select('name email role createdAt');
+
+    res.json({
+      success: true,
+      users
+    });
+
+  } catch (error) {
+    console.error("Get users error:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
 // ─── Complaints: Get all ─────────────────────────────────────
 router.get('/complaints', auth, async (req, res) => {
   try {

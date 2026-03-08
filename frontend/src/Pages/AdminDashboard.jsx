@@ -140,6 +140,14 @@ const monthlyData = Object.keys(monthCounts).map(m=>({
  value:monthCounts[m]
 }))
 
+if (loading) {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <p className="text-xl font-semibold">Loading dashboard...</p>
+    </div>
+  );
+}
+
 return(
 
 <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] flex flex-col">
