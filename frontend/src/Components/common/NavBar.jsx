@@ -51,14 +51,20 @@ const NavBar = () => {
     }, []);
 
     const navLinks = [
-        { label: 'Dashboard', path: '/dashboard' },
+  { label: 'Dashboard', path: '/dashboard' },
 
-        ...(role !== 'volunteer'
-            ? [{ label: 'Report Issue', path: '/report' }]
-            : []),
+  ...(role === 'admin'
+    ? [{ label: 'Admin Panel', path: '/admin' }]
+    : []),
 
-        { label: 'View Complaints', path: '/complaints' },
-    ];
+  ...(role !== 'volunteer'
+    ? [{ label: 'Report Issue', path: '/report' }]
+    : []),
+
+  { label: 'View Complaints', path: '/complaints' },
+
+  
+];
 
     const isActive = (path) => location.pathname === path;
 
