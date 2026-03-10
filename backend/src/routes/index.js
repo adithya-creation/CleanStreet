@@ -5,10 +5,16 @@ const User = require('../models/User');
 const Complaint = require('../models/Complaint');
 const Vote = require('../models/Vote');
 const Comment = require('../models/Comment');
+const AdminLog = require('../models/AdminLog');
 const auth = require('../middleware/auth');
 const { isVolunteer } = require('../middleware/auth');
 
 const router = express.Router();
+
+// ─── Helper: log activity (fire-and-forget, never throws) ─────
+const logActivity = (data) => {
+  AdminLog.create(data).catch(err => console.error('ActivityLog error:', err));
+};
 
 const isValidEmail = (email = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPassword = (password = '') => typeof password === 'string' && password.length >= 6;
@@ -196,6 +202,7 @@ router.patch('/users/:id/role', auth, async (req, res) => {
     if (!allowedRoles.includes(role))
       return res.status(400).json({ success: false, message: 'Invalid role' });
 
+    const prevUser = await User.findById(req.params.id).select('name role');
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
@@ -203,6 +210,16 @@ router.patch('/users/:id/role', auth, async (req, res) => {
     ).select('name email role location createdAt');
 
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    logActivity({
+      activityType: 'role_changed',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: user._id,
+      targetName: user.name,
+      details: `${prevUser?.role || '?'} → ${role}`,
+    });
+
     return res.json({ success: true, user });
   } catch (error) {
     console.error('Update role error:', error);
@@ -221,6 +238,16 @@ router.delete('/users/:id', auth, async (req, res) => {
 
     const user = await User.findByIdAndDelete(req.params.id);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    logActivity({
+      activityType: 'user_deleted',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: user._id,
+      targetName: user.name,
+      details: `Email: ${user.email}`,
+    });
+
     return res.json({ success: true, message: 'User deleted' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -252,6 +279,15 @@ router.patch('/complaints/:id/assign', auth, async (req, res) => {
 
     if (!complaint)
       return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    logActivity({
+      activityType: 'volunteer_assigned',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Assigned to ${volunteer.name}`,
+    });
 
     return res.json({ success: true, complaint });
   } catch (error) {
@@ -349,6 +385,15 @@ router.post('/complaints', auth, async (req, res) => {
       type: type,
     });
 
+    logActivity({
+      activityType: 'complaint_created',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Type: ${type || 'N/A'} · Priority: ${priority || 'Medium'}`,
+    });
+
     return res.status(201).json({ success: true, message: 'Complaint created', complaint });
   } catch (error) {
     console.error('Create complaint error:', error);
@@ -376,15 +421,47 @@ router.patch('/complaints/:id/status', auth, async (req, res) => {
     if (!allowed.includes(status))
       return res.status(400).json({ success: false, message: 'Invalid status' });
 
+    const prev = await Complaint.findById(req.params.id).select('title status');
     const complaint = await Complaint.findByIdAndUpdate(
       req.params.id,
       { status },
       { new: true }
     );
     if (!complaint) return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    const statusLabels = { received: 'Pending', in_review: 'In Review', resolved: 'Resolved' };
+    logActivity({
+      activityType: 'status_changed',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `${statusLabels[prev?.status] || prev?.status} → ${statusLabels[status] || status}`,
+    });
+
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('Update status error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Admin: Get activity logs ─────────────────────────────────
+router.get('/admin/activity-logs', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const { limit } = req.query;
+    let query = AdminLog.find().sort({ timestamp: -1 });
+    if (limit && limit !== 'all') {
+      const n = parseInt(limit, 10);
+      if (!isNaN(n) && n > 0) query = query.limit(n);
+    }
+    const logs = await query.exec();
+    return res.json({ success: true, logs });
+  } catch (error) {
+    console.error('Activity logs error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
@@ -406,7 +483,19 @@ router.delete('/complaints/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
+    const title = complaint.title;
+    const targetId = complaint._id;
     await complaint.deleteOne();
+
+    logActivity({
+      activityType: 'complaint_deleted',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId,
+      targetName: title,
+      details: `Deleted by ${req.user.role}`,
+    });
+
     return res.json({ success: true, message: 'Complaint deleted' });
   } catch (error) {
     console.error('Delete complaint error:', error);
@@ -436,6 +525,16 @@ router.put('/complaints/:id', auth, async (req, res) => {
     if (photo) complaint.photo = photo.trim();
 
     await complaint.save();
+
+    logActivity({
+      activityType: 'complaint_edited',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Edited by ${req.user.role}`,
+    });
+
     return res.json({ success: true, complaint });
   } catch (error) {
     console.error('Edit complaint error:', error);
@@ -646,6 +745,15 @@ router.post('/complaints/:id/accept', auth, isVolunteer, async (req, res) => {
     await complaint.populate('assignedTo', 'name email profilePhoto');
     await complaint.populate('user', 'name email');
 
+    logActivity({
+      activityType: 'volunteer_accepted',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Accepted by volunteer ${req.user.name}`,
+    });
+
     console.log(`[Volunteer:Accept] ✅ Complaint "${complaint.title}" accepted by ${req.user.email} → status: in_review`);
     return res.json({ success: true, message: 'Complaint accepted and is now In Review', complaint });
   } catch (error) {
@@ -685,6 +793,15 @@ router.post('/complaints/:id/reject', auth, isVolunteer, async (req, res) => {
     await complaint.save();
     await complaint.populate('user', 'name email');
 
+    logActivity({
+      activityType: 'volunteer_rejected',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Rejected by volunteer ${req.user.name} → back to Pending`,
+    });
+
     console.log(`[Volunteer:Reject] ✅ Complaint "${complaint.title}" rejected by ${req.user.email} → status: received`);
     return res.json({ success: true, message: 'Complaint rejected and returned to received', complaint });
   } catch (error) {
@@ -723,6 +840,15 @@ router.patch('/complaints/:id/resolve', auth, isVolunteer, async (req, res) => {
     await complaint.save();
     await complaint.populate('assignedTo', 'name email profilePhoto');
     await complaint.populate('user', 'name email');
+
+    logActivity({
+      activityType: 'complaint_resolved',
+      actorId: req.user.id,
+      actorName: req.user.name,
+      targetId: complaint._id,
+      targetName: complaint.title,
+      details: `Resolved by volunteer ${req.user.name}`,
+    });
 
     console.log(`[Volunteer:Resolve] ✅ Complaint "${complaint.title}" resolved by ${req.user.email}`);
     return res.json({ success: true, message: 'Complaint marked as Resolved', complaint });

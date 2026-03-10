@@ -3,6 +3,7 @@ import NavBar from "../Components/common/NavBar";
 import Footer from "../Components/common/Footer";
 import { getAllComplaints, updateComplaintStatus, deleteComplaint, assignVolunteer } from "../services/complaintService";
 import { getAllUsers, updateUserRole, deleteUser } from "../services/authService";
+import api from "../services/api";
 
 import {
     PieChart,
@@ -138,7 +139,17 @@ const AdminDashboard = () => {
     const [selectedVolunteer, setSelectedVolunteer] = useState("");
     const [assignLoading, setAssignLoading] = useState(false); // { _id, title }
 
+    // Activity log state
+    const [activityLogs, setActivityLogs] = useState([]);
+    const [activityLimit, setActivityLimit] = useState("10");
+    const [activityLoading, setActivityLoading] = useState(false);
+
     useEffect(() => { fetchData(); }, []);
+
+    // Fetch logs whenever tab becomes active or limit changes
+    useEffect(() => {
+        if (activeTab === "activity") fetchActivityLogs();
+    }, [activeTab, activityLimit]);
 
     const fetchData = async () => {
         try {
@@ -150,6 +161,18 @@ const AdminDashboard = () => {
             console.log(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchActivityLogs = async () => {
+        setActivityLoading(true);
+        try {
+            const res = await api.get(`/admin/activity-logs?limit=${activityLimit}`);
+            if (res.data.success) setActivityLogs(res.data.logs || []);
+        } catch (e) {
+            console.error("Activity logs fetch error:", e);
+        } finally {
+            setActivityLoading(false);
         }
     };
 
@@ -694,8 +717,8 @@ const AdminDashboard = () => {
                                             type="button"
                                             onClick={() => setSelectedVolunteer(v._id)}
                                             className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${selectedVolunteer === v._id
-                                                    ? "border-indigo-500 bg-indigo-50"
-                                                    : "border-gray-100 bg-gray-50 hover:border-indigo-200"
+                                                ? "border-indigo-500 bg-indigo-50"
+                                                : "border-gray-100 bg-gray-50 hover:border-indigo-200"
                                                 }`}
                                         >
                                             <p className="text-sm font-bold text-gray-800">{v.name}</p>
@@ -729,35 +752,81 @@ const AdminDashboard = () => {
                 {activeTab === "activity" && (
                     <div className="bg-white/40 backdrop-blur-md rounded-3xl shadow-sm border border-white/60 overflow-hidden">
 
-                        <div className="px-8 py-6 border-b border-white/60">
-                            <h2 className="text-xl font-black text-gray-800">Recent Complaints</h2>
-                            <p className="text-gray-400 text-sm mt-0.5">Latest 5 submitted issues</p>
+                        {/* header */}
+                        <div className="px-8 py-6 border-b border-white/60 flex flex-wrap items-center justify-between gap-4">
+                            <div>
+                                <h2 className="text-xl font-black text-gray-800">Recent Activities</h2>
+                                <p className="text-gray-400 text-sm mt-0.5">All platform events — complaints, users, roles &amp; more</p>
+                            </div>
+                            {/* limit selector */}
+                            <FilterSelect value={activityLimit} onChange={e => setActivityLimit(e.target.value)}>
+                                <option value="10">Latest 10</option>
+                                <option value="20">Latest 20</option>
+                                <option value="all">All</option>
+                            </FilterSelect>
                         </div>
 
-                        <ul className="divide-y divide-white/60">
-                            {recentComplaints.map((c, i) => (
-                                <li key={c._id} className="px-8 py-5 flex items-center justify-between gap-4 hover:bg-white/30 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        {/* timeline dot */}
-                                        <div className="w-9 h-9 rounded-2xl bg-teal-100 flex items-center justify-center text-teal-600 font-black text-sm shrink-0">
-                                            {i + 1}
-                                        </div>
-                                        <div>
-                                            <p className="font-semibold text-gray-800">{c.title}</p>
-                                            <p className="text-xs text-gray-400 mt-0.5">
-                                                {c.createdAt ? new Date(c.createdAt).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : ""}
-                                                {c.location ? ` · ${c.location}` : ""}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <StatusBadge status={c.status} />
-                                </li>
-                            ))}
+                        {/* log list */}
+                        {activityLoading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <div className="w-8 h-8 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        ) : activityLogs.length === 0 ? (
+                            <p className="text-center text-gray-400 py-12 font-medium">No activity recorded yet.</p>
+                        ) : (
+                            <ul className="divide-y divide-white/60">
+                                {activityLogs.map((log) => {
+                                    // colour + icon per activity type
+                                    const typeMap = {
+                                        complaint_created: { bg: "bg-teal-100", text: "text-teal-600", icon: "📋", label: "New Complaint" },
+                                        status_changed: { bg: "bg-blue-100", text: "text-blue-600", icon: "🔄", label: "Status Changed" },
+                                        volunteer_assigned: { bg: "bg-indigo-100", text: "text-indigo-600", icon: "👤", label: "Volunteer Assigned" },
+                                        volunteer_accepted: { bg: "bg-cyan-100", text: "text-cyan-600", icon: "✅", label: "Volunteer Accepted" },
+                                        volunteer_rejected: { bg: "bg-orange-100", text: "text-orange-500", icon: "↩️", label: "Volunteer Rejected" },
+                                        complaint_resolved: { bg: "bg-emerald-100", text: "text-emerald-600", icon: "🏁", label: "Complaint Resolved" },
+                                        complaint_deleted: { bg: "bg-red-100", text: "text-red-500", icon: "🗑️", label: "Complaint Deleted" },
+                                        complaint_edited: { bg: "bg-yellow-100", text: "text-yellow-600", icon: "✏️", label: "Complaint Edited" },
+                                        role_changed: { bg: "bg-purple-100", text: "text-purple-600", icon: "🛡️", label: "Role Changed" },
+                                        user_deleted: { bg: "bg-red-100", text: "text-red-500", icon: "🗑️", label: "User Deleted" },
+                                    };
+                                    const t = typeMap[log.activityType] || { bg: "bg-gray-100", text: "text-gray-500", icon: "📌", label: log.activityType };
 
-                            {recentComplaints.length === 0 && (
-                                <p className="text-center text-gray-400 py-10 font-medium">No recent activity.</p>
-                            )}
-                        </ul>
+                                    return (
+                                        <li key={log._id} className="px-8 py-5 flex items-start justify-between gap-4 hover:bg-white/30 transition-colors">
+                                            <div className="flex items-start gap-4">
+                                                {/* icon */}
+                                                <div className={`w-10 h-10 rounded-2xl ${t.bg} flex items-center justify-center text-lg shrink-0`}>
+                                                    {t.icon}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    {/* label badge */}
+                                                    <span className={`inline-block text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${t.bg} ${t.text} mb-1`}>
+                                                        {t.label}
+                                                    </span>
+                                                    {/* main description */}
+                                                    <p className="font-semibold text-gray-800 text-sm leading-snug">
+                                                        <span className="text-teal-600">{log.actorName || "System"}</span>
+                                                        {" → "}
+                                                        <span className="text-gray-700">{log.targetName || "—"}</span>
+                                                    </p>
+                                                    {/* details */}
+                                                    {log.details && (
+                                                        <p className="text-xs text-gray-400 mt-0.5">{log.details}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* timestamp */}
+                                            <p className="text-xs text-gray-400 whitespace-nowrap shrink-0 mt-1">
+                                                {new Date(log.timestamp).toLocaleString("en-IN", {
+                                                    day: "numeric", month: "short", year: "numeric",
+                                                    hour: "2-digit", minute: "2-digit"
+                                                })}
+                                            </p>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
                     </div>
                 )}
 
