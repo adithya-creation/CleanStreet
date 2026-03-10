@@ -173,7 +173,7 @@ router.get('/users', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const users = await User.find().select('name email role createdAt');
+    const users = await User.find().select('name email role location createdAt');
 
     res.json({
       success: true,
@@ -183,6 +183,80 @@ router.get('/users', auth, async (req, res) => {
   } catch (error) {
     console.error("Get users error:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
+// ─── Admin: Update user role ──────────────────────────────────
+router.patch('/users/:id/role', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const { role } = req.body || {};
+    if (!allowedRoles.includes(role))
+      return res.status(400).json({ success: false, message: 'Invalid role' });
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      { new: true }
+    ).select('name email role location createdAt');
+
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    return res.json({ success: true, user });
+  } catch (error) {
+    console.error('Update role error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Admin: Delete user ───────────────────────────────────────
+router.delete('/users/:id', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Access denied' });
+
+    if (req.params.id === req.user.id)
+      return res.status(400).json({ success: false, message: 'Cannot delete your own account' });
+
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    return res.json({ success: true, message: 'User deleted' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Admin: Assign volunteer to complaint ─────────────────────
+router.patch('/complaints/:id/assign', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin')
+      return res.status(403).json({ success: false, message: 'Access denied' });
+
+    const { volunteerId } = req.body || {};
+    if (!volunteerId)
+      return res.status(400).json({ success: false, message: 'volunteerId is required' });
+
+    const volunteer = await User.findById(volunteerId);
+    if (!volunteer)
+      return res.status(404).json({ success: false, message: 'Volunteer not found' });
+
+    const complaint = await Complaint.findByIdAndUpdate(
+      req.params.id,
+      { assignedTo: volunteerId, status: 'in_review' },
+      { new: true }
+    )
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email profilePhoto');
+
+    if (!complaint)
+      return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+    return res.json({ success: true, complaint });
+  } catch (error) {
+    console.error('Assign volunteer error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 

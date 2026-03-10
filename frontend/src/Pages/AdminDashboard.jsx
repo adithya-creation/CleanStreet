@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import NavBar from "../Components/common/NavBar";
 import Footer from "../Components/common/Footer";
-import { getAllComplaints } from "../services/complaintService";
-import { getAllUsers } from "../services/authService";
+import { getAllComplaints, updateComplaintStatus, deleteComplaint, assignVolunteer } from "../services/complaintService";
+import { getAllUsers, updateUserRole, deleteUser } from "../services/authService";
 
 import {
     PieChart,
@@ -117,6 +117,27 @@ const AdminDashboard = () => {
     const [statusFilter, setStatusFilter] = useState("all");
     const [locationFilter, setLocationFilter] = useState("all");
 
+    // Edit role state
+    const [editingUserId, setEditingUserId] = useState(null);
+    const [editingRole, setEditingRole] = useState("");
+    const [roleLoading, setRoleLoading] = useState(false);
+
+    // Delete user state
+    const [deleteTarget, setDeleteTarget] = useState(null); // { _id, name }
+
+    // Edit complaint status state
+    const [editingComplaintId, setEditingComplaintId] = useState(null);
+    const [editingStatus, setEditingStatus] = useState("");
+    const [statusLoading, setStatusLoading] = useState(false);
+
+    // Delete complaint state
+    const [deleteComplaintTarget, setDeleteComplaintTarget] = useState(null);
+
+    // Assign volunteer state
+    const [assignTarget, setAssignTarget] = useState(null); // complaint object
+    const [selectedVolunteer, setSelectedVolunteer] = useState("");
+    const [assignLoading, setAssignLoading] = useState(false); // { _id, title }
+
     useEffect(() => { fetchData(); }, []);
 
     const fetchData = async () => {
@@ -129,6 +150,75 @@ const AdminDashboard = () => {
             console.log(e);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleSaveRole = async (userId) => {
+        setRoleLoading(true);
+        try {
+            const updated = await updateUserRole(userId, editingRole);
+            setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: updated.role } : u));
+            setEditingUserId(null);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setRoleLoading(false);
+        }
+    };
+
+    const handleDeleteUser = async () => {
+        if (!deleteTarget) return;
+        try {
+            await deleteUser(deleteTarget._id);
+            setUsers(prev => prev.filter(u => u._id !== deleteTarget._id));
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setDeleteTarget(null);
+        }
+    };
+
+    const handleSaveStatus = async (complaintId) => {
+        setStatusLoading(true);
+        try {
+            await updateComplaintStatus(complaintId, editingStatus);
+            setComplaints(prev => prev.map(c => c._id === complaintId ? { ...c, status: editingStatus } : c));
+            setEditingComplaintId(null);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setStatusLoading(false);
+        }
+    };
+
+    const handleDeleteComplaint = async () => {
+        if (!deleteComplaintTarget) return;
+        try {
+            await deleteComplaint(deleteComplaintTarget._id);
+            setComplaints(prev => prev.filter(c => c._id !== deleteComplaintTarget._id));
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setDeleteComplaintTarget(null);
+        }
+    };
+
+    const handleAssignVolunteer = async () => {
+        if (!assignTarget || !selectedVolunteer) return;
+        setAssignLoading(true);
+        try {
+            const updated = await assignVolunteer(assignTarget._id, selectedVolunteer);
+            setComplaints(prev => prev.map(c =>
+                c._id === assignTarget._id
+                    ? { ...c, assignedTo: updated.assignedTo, status: updated.status }
+                    : c
+            ));
+            setAssignTarget(null);
+            setSelectedVolunteer("");
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setAssignLoading(false);
         }
     };
 
@@ -170,8 +260,8 @@ const AdminDashboard = () => {
 
     const filteredUsers = roleFilter === "all" ? users : users.filter(u => u.role === roleFilter);
     const filteredComplaints = statusFilter === "all" ? complaints : complaints.filter(c => c.status === statusFilter);
-    const locations = [...new Set(complaints.map(c => c.location))];
-    const filteredByLocation = locationFilter === "all" ? filteredComplaints : filteredComplaints.filter(c => c.location === locationFilter);
+    const locations = [...new Set(complaints.map(c => c.address).filter(Boolean))];
+    const filteredByLocation = locationFilter === "all" ? filteredComplaints : filteredComplaints.filter(c => c.address === locationFilter);
 
     const recentComplaints = [...complaints].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
 
@@ -349,15 +439,49 @@ const AdminDashboard = () => {
                                         <tr key={user._id} className="hover:bg-white/30 transition-colors">
                                             <td className="px-8 py-4 font-semibold text-gray-800">{user.name}</td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">{user.email}</td>
-                                            <td className="px-4 py-4"><RoleBadge role={user.role} /></td>
+                                            <td className="px-4 py-4">
+                                                {editingUserId === user._id ? (
+                                                    <select
+                                                        value={editingRole}
+                                                        onChange={e => setEditingRole(e.target.value)}
+                                                        className="text-xs font-bold px-2 py-1 rounded-lg border border-teal-300 bg-white focus:outline-none focus:ring-2 focus:ring-teal-300"
+                                                    >
+                                                        <option value="user">User</option>
+                                                        <option value="volunteer">Volunteer</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                ) : (
+                                                    <RoleBadge role={user.role} />
+                                                )}
+                                            </td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">{user.location || "N/A"}</td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">
                                                 {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="flex gap-2">
-                                                    <ActionBtn color="teal">View</ActionBtn>
-                                                    <ActionBtn color="red">Delete</ActionBtn>
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {editingUserId === user._id ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => setEditingUserId(null)}
+                                                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition-all"
+                                                            >
+                                                                ✗ Cancel
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleSaveRole(user._id)}
+                                                                disabled={roleLoading}
+                                                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white transition-all disabled:opacity-60"
+                                                            >
+                                                                {roleLoading ? "Saving…" : "✓ Save"}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ActionBtn color="teal" onClick={() => { setEditingUserId(user._id); setEditingRole(user.role); }}>Edit</ActionBtn>
+                                                            <ActionBtn color="red" onClick={() => setDeleteTarget(user)}>Delete</ActionBtn>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -368,6 +492,40 @@ const AdminDashboard = () => {
                             {filteredUsers.length === 0 && (
                                 <p className="text-center text-gray-400 py-10 font-medium">No users found.</p>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── DELETE CONFIRMATION MODAL ─────────────────────────── */}
+                {deleteTarget && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        {/* backdrop */}
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteTarget(null)} />
+                        {/* modal */}
+                        <div className="relative bg-white rounded-3xl shadow-2xl px-10 py-8 max-w-sm w-full mx-4">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center text-3xl">🗑️</div>
+                                <h3 className="text-xl font-black text-gray-800">Delete User</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">
+                                    Are you sure you want to delete&nbsp;
+                                    <span className="font-bold text-gray-700">{deleteTarget.name}</span>?
+                                    <br />This action cannot be undone.
+                                </p>
+                                <div className="flex gap-3 mt-2 w-full">
+                                    <button
+                                        onClick={() => setDeleteTarget(null)}
+                                        className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteUser}
+                                        className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-sm transition-all"
+                                    >
+                                        Yes, Delete
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -412,18 +570,60 @@ const AdminDashboard = () => {
                                     {filteredByLocation.map(c => (
                                         <tr key={c._id} className="hover:bg-white/30 transition-colors">
                                             <td className="px-8 py-4 font-semibold text-gray-800">{c.title}</td>
-                                            <td className="px-4 py-4 text-gray-500 text-sm">{c.reportedBy?.name || "Unknown"}</td>
-                                            <td className="px-4 py-4 text-gray-500 text-sm">{c.location || "N/A"}</td>
+                                            <td className="px-4 py-4 text-gray-500 text-sm">{c.user?.name || "Unknown"}</td>
+                                            <td className="px-4 py-4 text-gray-500 text-sm">{c.address || "N/A"}</td>
                                             <td className="px-4 py-4 text-gray-600 text-sm">{c.type || "Other"}</td>
-                                            <td className="px-4 py-4"><StatusBadge status={c.status} /></td>
-                                            <td className="px-4 py-4 text-gray-500 text-sm">{c.assignedTo?.name || <span className="text-gray-300">—</span>}</td>
+                                            <td className="px-4 py-4">
+                                                {editingComplaintId === c._id ? (
+                                                    <select
+                                                        value={editingStatus}
+                                                        onChange={e => setEditingStatus(e.target.value)}
+                                                        className="text-xs font-bold px-2 py-1 rounded-lg border border-teal-300 bg-white focus:outline-none focus:ring-2 focus:ring-teal-300"
+                                                    >
+                                                        <option value="received">Pending</option>
+                                                        <option value="in_review">In Review</option>
+                                                        <option value="resolved">Resolved</option>
+                                                    </select>
+                                                ) : (
+                                                    <StatusBadge status={c.status} />
+                                                )}
+                                            </td>
+                                            <td className="px-4 py-4 text-gray-500 text-sm">
+                                                {c.assignedTo?.name
+                                                    ? <span className="font-medium text-gray-700">{c.assignedTo.name}</span>
+                                                    : <button
+                                                        onClick={() => { setAssignTarget(c); setSelectedVolunteer(""); }}
+                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-all"
+                                                    >Assign</button>
+                                                }
+                                            </td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">
                                                 {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "N/A"}
                                             </td>
                                             <td className="px-4 py-4">
-                                                <div className="flex gap-2">
-                                                    <ActionBtn color="teal">View</ActionBtn>
-                                                    <ActionBtn color="green">Assign</ActionBtn>
+                                                <div className="flex gap-2 flex-wrap">
+                                                    {editingComplaintId === c._id ? (
+                                                        <>
+                                                            <button
+                                                                onClick={() => setEditingComplaintId(null)}
+                                                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-700 transition-all"
+                                                            >
+                                                                ✗ Cancel
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleSaveStatus(c._id)}
+                                                                disabled={statusLoading}
+                                                                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white transition-all disabled:opacity-60"
+                                                            >
+                                                                {statusLoading ? "Saving…" : "✓ Save"}
+                                                            </button>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ActionBtn color="teal" onClick={() => { setEditingComplaintId(c._id); setEditingStatus(c.status); }}>Edit</ActionBtn>
+                                                            <ActionBtn color="red" onClick={() => setDeleteComplaintTarget(c)}>Delete</ActionBtn>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
@@ -434,6 +634,93 @@ const AdminDashboard = () => {
                             {filteredByLocation.length === 0 && (
                                 <p className="text-center text-gray-400 py-10 font-medium">No complaints found.</p>
                             )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── DELETE COMPLAINT MODAL ─────────────────────────── */}
+                {deleteComplaintTarget && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteComplaintTarget(null)} />
+                        <div className="relative bg-white rounded-3xl shadow-2xl px-10 py-8 max-w-sm w-full mx-4">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-red-100 flex items-center justify-center text-3xl">🗑️</div>
+                                <h3 className="text-xl font-black text-gray-800">Delete Complaint</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">
+                                    Are you sure you want to delete&nbsp;
+                                    <span className="font-bold text-gray-700">"{deleteComplaintTarget.title}"</span>?
+                                    <br />This action cannot be undone.
+                                </p>
+                                <div className="flex gap-3 mt-2 w-full">
+                                    <button
+                                        onClick={() => setDeleteComplaintTarget(null)}
+                                        className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteComplaint}
+                                        className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold text-sm transition-all"
+                                    >
+                                        Yes, Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── ASSIGN VOLUNTEER MODAL ─────────────────────────────── */}
+                {assignTarget && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setAssignTarget(null)} />
+                        <div className="relative bg-white rounded-3xl shadow-2xl px-10 py-8 max-w-sm w-full mx-4">
+                            <div className="flex flex-col gap-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-2xl">👤</div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-gray-800">Assign Volunteer</h3>
+                                        <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[200px]">{assignTarget.title}</p>
+                                    </div>
+                                </div>
+                                {/* Volunteer list with location */}
+                                <div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+                                    {users.filter(u => u.role === "volunteer").length === 0 && (
+                                        <p className="text-sm text-gray-400 text-center py-4">No volunteers found.</p>
+                                    )}
+                                    {users.filter(u => u.role === "volunteer").map(v => (
+                                        <button
+                                            key={v._id}
+                                            type="button"
+                                            onClick={() => setSelectedVolunteer(v._id)}
+                                            className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${selectedVolunteer === v._id
+                                                    ? "border-indigo-500 bg-indigo-50"
+                                                    : "border-gray-100 bg-gray-50 hover:border-indigo-200"
+                                                }`}
+                                        >
+                                            <p className="text-sm font-bold text-gray-800">{v.name}</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">
+                                                📍 {v.location || "No location set"}
+                                            </p>
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setAssignTarget(null)}
+                                        className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleAssignVolunteer}
+                                        disabled={!selectedVolunteer || assignLoading}
+                                        className="flex-1 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm transition-all disabled:opacity-50"
+                                    >
+                                        {assignLoading ? "Assigning…" : "Assign"}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 )}

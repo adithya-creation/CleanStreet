@@ -69,6 +69,18 @@ export const changePassword = async ({ currentPassword, newPassword }) => {
 
 // Admin-only: Get all users (for admin dashboard)
 export const getAllUsers = async () => {
-  const res = await api.get("/users");
-  return res.data.users;
+    const res = await api.get("/users");
+    return res.data.users;
+};
+
+// Admin-only: Update a user's role
+export const updateUserRole = async (userId, role) => {
+    const res = await api.patch(`/users/${userId}/role`, { role });
+    return res.data.user;
+};
+
+// Admin-only: Delete a user
+export const deleteUser = async (userId) => {
+    const res = await api.delete(`/users/${userId}`);
+    return res.data;
 };
