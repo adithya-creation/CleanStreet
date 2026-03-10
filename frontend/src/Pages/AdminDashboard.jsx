@@ -5,18 +5,18 @@ import { getAllComplaints } from "../services/complaintService";
 import { getAllUsers } from "../services/authService";
 
 import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid
+ PieChart,
+ Pie,
+ Cell,
+ Tooltip,
+ BarChart,
+ Bar,
+ XAxis,
+ YAxis,
+ ResponsiveContainer,
+ LineChart,
+ Line,
+ CartesianGrid
 } from "recharts";
 
 const COLORS = ["#14B8A6", "#F59E0B", "#EF4444", "#6366F1", "#8B5CF6"];
@@ -26,12 +26,16 @@ const AdminDashboard = () => {
 const [users,setUsers] = useState([]);
 const [complaints,setComplaints] = useState([]);
 const [loading,setLoading] = useState(true);
+const [activeTab,setActiveTab] = useState("overview");
+const [roleFilter,setRoleFilter] = useState("all");
+const [statusFilter,setStatusFilter] = useState("all");
+const [locationFilter,setLocationFilter] = useState("all");
 
 useEffect(()=>{
-fetchData();
+ fetchData();
 },[])
 
-const fetchData = async () =>{
+const fetchData = async ()=>{
  try{
 
  const userData = await getAllUsers();
@@ -47,7 +51,7 @@ const fetchData = async () =>{
  }
 }
 
-/* ----------------------- STATUS DATA ---------------------- */
+/* STATUS */
 
 const pending = complaints.filter(c=>c.status === "received");
 const inReview = complaints.filter(c=>c.status === "in_review");
@@ -59,32 +63,32 @@ const statusData = [
  {name:"Resolved", value:resolved.length}
 ];
 
-/* ----------------------- USER ROLE DATA ---------------------- */
+/* USER ROLES */
 
 const roleCounts = users.reduce((acc,user)=>{
  acc[user.role] = (acc[user.role] || 0) + 1;
  return acc;
-},{})
+},{});
 
 const roleData = Object.keys(roleCounts).map(role=>({
  name:role,
  value:roleCounts[role]
-}))
+}));
 
-/* ----------------------- COMPLAINT TYPE DATA ---------------------- */
+/* COMPLAINT TYPES */
 
 const typeCounts = complaints.reduce((acc,c)=>{
  const type = c.type || "Other";
  acc[type] = (acc[type] || 0) + 1;
  return acc;
-},{})
+},{});
 
 const typeData = Object.keys(typeCounts).map(type=>({
  name:type,
  value:typeCounts[type]
-}))
+}));
 
-/* ----------------------- TOP 5 TYPES ---------------------- */
+/* TOP TYPES */
 
 const topTypes = Object.entries(typeCounts)
 .sort((a,b)=>b[1]-a[1])
@@ -92,13 +96,14 @@ const topTypes = Object.entries(typeCounts)
 .map(([type,count])=>({
  name:type,
  value:count
-}))
+}));
 
-/* ----------------------- LAST 7 DAYS COMPLAINTS ---------------------- */
+/* LAST 7 DAYS */
 
 const last7DaysData = Array.from({length:7}).map((_,i)=>{
  const date = new Date();
  date.setDate(date.getDate() - (6-i));
+
  const day = date.toLocaleDateString("en-US",{weekday:"short"});
 
  const count = complaints.filter(c=>{
@@ -106,10 +111,10 @@ const last7DaysData = Array.from({length:7}).map((_,i)=>{
  return d.toDateString() === date.toDateString();
  }).length;
 
- return {day,count}
-})
+ return {day,count};
+});
 
-/* ----------------------- LAST 30 DAYS USER REGISTRATION ---------------------- */
+/* LAST 30 DAYS USERS */
 
 const last30DaysUsers = Array.from({length:30}).map((_,i)=>{
  const date = new Date();
@@ -124,28 +129,67 @@ const last30DaysUsers = Array.from({length:30}).map((_,i)=>{
  day:date.getDate(),
  count
  }
-})
+});
 
-/* ----------------------- MONTHLY COMPLAINT TREND ---------------------- */
+/* MONTHLY */
 
 const monthCounts = {};
 
 complaints.forEach(c=>{
  const month = new Date(c.createdAt).toLocaleString("default",{month:"short"});
  monthCounts[month] = (monthCounts[month] || 0) + 1;
-})
+});
 
 const monthlyData = Object.keys(monthCounts).map(m=>({
  month:m,
  value:monthCounts[m]
-}))
+}));
+
+/* FILTER USERS */
+
+const filteredUsers =
+roleFilter === "all"
+? users
+: users.filter(u => u.role === roleFilter);
+
+/* FILTER COMPLAINTS */
+
+const filteredComplaints =
+statusFilter === "all"
+? complaints
+: complaints.filter(c => c.status === statusFilter);
+
+/* LOCATIONS */
+
+const locations = [...new Set(complaints.map(c => c.location))];
+
+const filteredByLocation =
+locationFilter === "all"
+? filteredComplaints
+: filteredComplaints.filter(c => c.location === locationFilter);
+
+/* RECENT ACTIVITIES */
+
+const recentComplaints =
+[...complaints]
+.sort((a,b)=> new Date(b.createdAt) - new Date(a.createdAt))
+.slice(0,5);
+
+const getStatusColor = (status) => {
+
+if(status === "resolved") return "green";
+if(status === "in_review") return "blue";
+
+return "orange";
+
+};
 
 if (loading) {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <p className="text-xl font-semibold">Loading dashboard...</p>
-    </div>
-  );
+ return (
+ <div className="min-h-screen flex items-center justify-center">
+ <p className="text-xl font-semibold">Loading dashboard...</p>
+ </div>
+ );
 }
 
 return(
@@ -156,11 +200,49 @@ return(
 
 <div className="flex-1 max-w-7xl mx-auto w-full p-8">
 
-<h1 className="text-4xl font-black mb-10">
+<h1 className="text-4xl font-black mb-8">
 Admin Dashboard
 </h1>
 
-{/* STAT CARDS */}
+{/* MENU */}
+
+<div className="flex gap-8 border-b mb-10">
+
+<button
+onClick={()=>setActiveTab("overview")}
+className={`pb-3 font-semibold ${activeTab==="overview" ? "border-b-2 border-teal-500 text-teal-600":"text-gray-500"}`}
+>
+Overview
+</button>
+
+<button
+onClick={()=>setActiveTab("users")}
+className={`pb-3 font-semibold ${activeTab==="users" ? "border-b-2 border-teal-500 text-teal-600":"text-gray-500"}`}
+>
+Manage Users
+</button>
+
+<button
+onClick={()=>setActiveTab("complaints")}
+className={`pb-3 font-semibold ${activeTab==="complaints" ? "border-b-2 border-teal-500 text-teal-600":"text-gray-500"}`}
+>
+View Complaints
+</button>
+
+<button
+onClick={()=>setActiveTab("activity")}
+className={`pb-3 font-semibold ${activeTab==="activity" ? "border-b-2 border-teal-500 text-teal-600":"text-gray-500"}`}
+>
+Recent Activities
+</button>
+
+</div>
+
+{/* OVERVIEW */}
+
+{activeTab === "overview" && (
+
+<>
 
 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
 
@@ -171,11 +253,7 @@ Admin Dashboard
 
 </div>
 
-{/* ---------------- ANALYTICS SECTION ---------------- */}
-
 <div className="grid md:grid-cols-2 gap-10 mb-16">
-
-{/* Complaint Status */}
 
 <ChartCard title="Complaint Status Distribution">
 <ResponsiveContainer width="100%" height={300}>
@@ -190,8 +268,6 @@ Admin Dashboard
 </ResponsiveContainer>
 </ChartCard>
 
-{/* Complaint Types */}
-
 <ChartCard title="Complaint Types">
 <ResponsiveContainer width="100%" height={300}>
 <PieChart>
@@ -204,8 +280,6 @@ Admin Dashboard
 </PieChart>
 </ResponsiveContainer>
 </ChartCard>
-
-{/* User Roles */}
 
 <ChartCard title="User Roles">
 <ResponsiveContainer width="100%" height={300}>
@@ -220,8 +294,6 @@ Admin Dashboard
 </ResponsiveContainer>
 </ChartCard>
 
-{/* Top Complaint Types */}
-
 <ChartCard title="Top 5 Complaint Types">
 <ResponsiveContainer width="100%" height={300}>
 <BarChart layout="vertical" data={topTypes}>
@@ -232,8 +304,6 @@ Admin Dashboard
 </BarChart>
 </ResponsiveContainer>
 </ChartCard>
-
-{/* Complaints Last 7 Days */}
 
 <ChartCard title="Complaints (Last 7 Days)">
 <ResponsiveContainer width="100%" height={300}>
@@ -247,8 +317,6 @@ Admin Dashboard
 </ResponsiveContainer>
 </ChartCard>
 
-{/* User Registrations */}
-
 <ChartCard title="User Registrations (Last 30 Days)">
 <ResponsiveContainer width="100%" height={300}>
 <LineChart data={last30DaysUsers}>
@@ -260,8 +328,6 @@ Admin Dashboard
 </LineChart>
 </ResponsiveContainer>
 </ChartCard>
-
-{/* Monthly Complaint Trends */}
 
 <ChartCard title="Monthly Complaint Trends">
 <ResponsiveContainer width="100%" height={300}>
@@ -276,6 +342,226 @@ Admin Dashboard
 
 </div>
 
+</>
+
+)}
+
+{/* USERS */}
+
+{activeTab === "users" && (
+
+<div className="bg-white p-8 rounded-3xl shadow">
+
+<h2 className="text-2xl font-bold mb-6">All Users</h2>
+<select
+value={roleFilter}
+onChange={(e)=>setRoleFilter(e.target.value)}
+>
+
+<option value="all">All Roles</option>
+<option value="user">User</option>
+<option value="volunteer">Volunteer</option>
+<option value="admin">Admin</option>
+
+</select>
+
+<table className="w-full">
+
+<thead>
+<tr className="border-b">
+<th className="text-left py-2">Name</th>
+<th className="text-left py-2">Email</th>
+<th className="text-left py-2">Role</th>
+<th className="text-left py-2">Location</th>
+<th className="text-left py-2">Joined</th>
+<th className="text-left py-2">Actions</th>
+</tr>
+</thead>
+
+<tbody>
+
+{filteredUsers.map(user=>(
+<tr key={user._id} className="border-b">
+
+<td className="py-2">{user.name}</td>
+
+<td className="py-2">{user.email}</td>
+
+<td className="py-2">{user.role}</td>
+
+<td className="py-2">{user.location || "N/A"}</td>
+
+<td className="py-2">
+{user.createdAt
+? new Date(user.createdAt).toLocaleDateString()
+: "N/A"}
+</td>
+
+<td className="py-2 space-x-2">
+
+<button className="text-blue-600 text-sm">
+View
+</button>
+
+<button className="text-red-600 text-sm">
+Delete
+</button>
+
+</td>
+
+</tr>
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)}
+
+{/* COMPLAINTS */}
+
+{activeTab === "complaints" && (
+
+<div className="bg-white p-8 rounded-3xl shadow">
+
+<h2 className="text-2xl font-bold mb-6">All Complaints</h2>
+
+<select
+value={statusFilter}
+onChange={(e)=>setStatusFilter(e.target.value)}
+>
+
+<option value="all">All Status</option>
+<option value="received">Pending</option>
+<option value="in_review">In Review</option>
+<option value="resolved">Resolved</option>
+
+</select>
+
+<select
+value={locationFilter}
+onChange={(e)=>setLocationFilter(e.target.value)}
+>
+
+<option value="all">All Locations</option>
+
+{locations.map(loc=>(
+<option key={loc} value={loc}>
+{loc}
+</option>
+))}
+
+</select>
+
+<table className="w-full">
+
+<thead>
+
+<tr className="border-b">
+
+<th className="text-left py-2">Title</th>
+
+<th className="text-left py-2">Reported By</th>
+
+<th className="text-left py-2">Location</th>
+
+<th className="text-left py-2">Type</th>
+
+<th className="text-left py-2">Status</th>
+
+<th className="text-left py-2">Assigned To</th>
+
+<th className="text-left py-2">Date</th>
+
+<th className="text-left py-2">Actions</th>
+
+</tr>
+
+</thead>
+
+<tbody>
+
+{filteredByLocation.map(c=>(
+<tr key={c._id} className="border-b">
+
+<td className="py-2">{c.title}</td>
+
+<td className="py-2">
+{c.reportedBy?.name || "Unknown"}
+</td>
+
+<td className="py-2">
+{c.location || "N/A"}
+</td>
+
+<td className="py-2">
+{c.type || "Other"}
+</td>
+
+<td
+className="py-2"
+style={{color:getStatusColor(c.status)}}
+>
+{c.status}
+</td>
+
+<td className="py-2">
+{c.assignedTo?.name || "Not Assigned"}
+</td>
+
+<td className="py-2">
+{c.createdAt
+? new Date(c.createdAt).toLocaleDateString()
+: "N/A"}
+</td>
+
+<td className="py-2 space-x-2">
+
+<button className="text-blue-600 text-sm">
+View
+</button>
+
+<button className="text-green-600 text-sm">
+Assign
+</button>
+
+</td>
+
+</tr>
+))}
+
+</tbody>
+
+</table>
+
+</div>
+
+)}
+
+{/* ACTIVITY */}
+
+{activeTab === "activity" && (
+
+<div className="bg-white p-8 rounded-3xl shadow">
+
+<h2 className="text-2xl font-bold mb-6">Recent Complaints</h2>
+
+<ul className="space-y-3">
+
+{recentComplaints.map(c=>(
+<li key={c._id} className="border-b pb-2">
+{c.title} - {c.status}
+</li>
+))}
+
+</ul>
+
+</div>
+
+)}
+
 </div>
 
 <Footer/>
@@ -286,7 +572,7 @@ Admin Dashboard
 
 }
 
-/* ---------------- STAT CARD ---------------- */
+/* STAT CARD */
 
 const StatCard = ({label,val}) => (
 
@@ -304,7 +590,7 @@ const StatCard = ({label,val}) => (
 
 )
 
-/* ---------------- CHART CARD ---------------- */
+/* CHART CARD */
 
 const ChartCard = ({title,children}) =>(
 
@@ -320,4 +606,4 @@ const ChartCard = ({title,children}) =>(
 
 )
 
-export default AdminDashboard;
+export default AdminDashboard; 
