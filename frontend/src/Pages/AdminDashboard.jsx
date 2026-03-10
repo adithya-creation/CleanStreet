@@ -129,6 +129,7 @@ const AdminDashboard = () => {
     // Edit complaint status state
     const [editingComplaintId, setEditingComplaintId] = useState(null);
     const [editingStatus, setEditingStatus] = useState("");
+    const [editingAssignedTo, setEditingAssignedTo] = useState(""); // volunteer id or "" for unassigned
     const [statusLoading, setStatusLoading] = useState(false);
 
     // Delete complaint state
@@ -143,6 +144,9 @@ const AdminDashboard = () => {
     const [activityLogs, setActivityLogs] = useState([]);
     const [activityLimit, setActivityLimit] = useState("10");
     const [activityLoading, setActivityLoading] = useState(false);
+
+    // Role change block popup
+    const [roleErrorModal, setRoleErrorModal] = useState(null); // { message, reason }
 
     useEffect(() => { fetchData(); }, []);
 
@@ -183,7 +187,14 @@ const AdminDashboard = () => {
             setUsers(prev => prev.map(u => u._id === userId ? { ...u, role: updated.role } : u));
             setEditingUserId(null);
         } catch (e) {
-            console.error(e);
+            // Show a descriptive popup if the backend blocked the role change
+            const data = e?.response?.data;
+            if (data?.blocked) {
+                setRoleErrorModal({ message: data.message, reason: data.reason });
+                setEditingUserId(null); // close the edit inline
+            } else {
+                console.error(e);
+            }
         } finally {
             setRoleLoading(false);
         }
@@ -204,8 +215,24 @@ const AdminDashboard = () => {
     const handleSaveStatus = async (complaintId) => {
         setStatusLoading(true);
         try {
+            // Save status change
             await updateComplaintStatus(complaintId, editingStatus);
-            setComplaints(prev => prev.map(c => c._id === complaintId ? { ...c, status: editingStatus } : c));
+
+            // Save volunteer reassignment if it changed
+            const original = complaints.find(c => c._id === complaintId);
+            const originalVolId = original?.assignedTo?._id || "";
+            if (editingAssignedTo !== originalVolId) {
+                // Call assign endpoint — empty string triggers unassign on backend
+                const updated = await assignVolunteer(complaintId, editingAssignedTo);
+                setComplaints(prev => prev.map(c =>
+                    c._id === complaintId
+                        ? { ...c, status: updated.status ?? editingStatus, assignedTo: updated.assignedTo ?? null }
+                        : c
+                ));
+            } else {
+                setComplaints(prev => prev.map(c => c._id === complaintId ? { ...c, status: editingStatus } : c));
+            }
+
             setEditingComplaintId(null);
         } catch (e) {
             console.error(e);
@@ -501,7 +528,10 @@ const AdminDashboard = () => {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <ActionBtn color="teal" onClick={() => { setEditingUserId(user._id); setEditingRole(user.role); }}>Edit</ActionBtn>
+                                                            {/* Admins cannot have their role changed */}
+                                                            {user.role !== "admin" && (
+                                                                <ActionBtn color="teal" onClick={() => { setEditingUserId(user._id); setEditingRole(user.role); }}>Edit</ActionBtn>
+                                                            )}
                                                             <ActionBtn color="red" onClick={() => setDeleteTarget(user)}>Delete</ActionBtn>
                                                         </>
                                                     )}
@@ -548,6 +578,43 @@ const AdminDashboard = () => {
                                         Yes, Delete
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── ROLE CHANGE BLOCKED MODAL ─────────────────────────── */}
+                {roleErrorModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRoleErrorModal(null)} />
+                        <div className="relative bg-white rounded-3xl shadow-2xl px-10 py-8 max-w-md w-full mx-4">
+                            <div className="flex flex-col items-center text-center gap-4">
+                                {/* icon — different per reason */}
+                                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-3xl ${roleErrorModal.reason === 'has_complaints' ? 'bg-orange-100' : 'bg-yellow-100'}`}>
+                                    {roleErrorModal.reason === 'has_complaints' ? '📋' : '👤'}
+                                </div>
+                                <h3 className="text-xl font-black text-gray-800">Role Change Blocked</h3>
+                                <p className="text-gray-500 text-sm leading-relaxed">
+                                    {roleErrorModal.message}
+                                </p>
+                                {roleErrorModal.reason === 'has_complaints' && (
+                                    <div className="w-full bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 text-left">
+                                        <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">How to fix</p>
+                                        <p className="text-sm text-orange-700">Go to <span className="font-bold">View Complaints</span>, filter by this user, and delete their complaints. Then retry the role change.</p>
+                                    </div>
+                                )}
+                                {roleErrorModal.reason === 'is_assigned' && (
+                                    <div className="w-full bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 text-left">
+                                        <p className="text-xs font-bold text-yellow-600 uppercase tracking-wider mb-1">How to fix</p>
+                                        <p className="text-sm text-yellow-700">Go to <span className="font-bold">View Complaints</span>, find complaints assigned to this volunteer, and reassign them or wait for resolution. Then retry the role change.</p>
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => setRoleErrorModal(null)}
+                                    className="w-full py-2.5 rounded-xl bg-gray-800 hover:bg-gray-900 text-white font-bold text-sm transition-all mt-1"
+                                >
+                                    Got it
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -612,13 +679,25 @@ const AdminDashboard = () => {
                                                 )}
                                             </td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">
-                                                {c.assignedTo?.name
-                                                    ? <span className="font-medium text-gray-700">{c.assignedTo.name}</span>
-                                                    : <button
-                                                        onClick={() => { setAssignTarget(c); setSelectedVolunteer(""); }}
-                                                        className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-all"
-                                                    >Assign</button>
-                                                }
+                                                {editingComplaintId === c._id ? (
+                                                    <select
+                                                        value={editingAssignedTo}
+                                                        onChange={e => setEditingAssignedTo(e.target.value)}
+                                                        className="text-xs font-bold px-2 py-1 rounded-lg border border-indigo-300 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 max-w-[130px]"
+                                                    >
+                                                        <option value="">— Unassigned —</option>
+                                                        {users.filter(u => u.role === "volunteer").map(v => (
+                                                            <option key={v._id} value={v._id}>{v.name}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    c.assignedTo?.name
+                                                        ? <span className="font-medium text-gray-700">{c.assignedTo.name}</span>
+                                                        : <button
+                                                            onClick={() => { setAssignTarget(c); setSelectedVolunteer(""); }}
+                                                            className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-all"
+                                                        >Assign</button>
+                                                )}
                                             </td>
                                             <td className="px-4 py-4 text-gray-500 text-sm">
                                                 {c.createdAt ? new Date(c.createdAt).toLocaleDateString() : "N/A"}
@@ -643,7 +722,7 @@ const AdminDashboard = () => {
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <ActionBtn color="teal" onClick={() => { setEditingComplaintId(c._id); setEditingStatus(c.status); }}>Edit</ActionBtn>
+                                                            <ActionBtn color="teal" onClick={() => { setEditingComplaintId(c._id); setEditingStatus(c.status); setEditingAssignedTo(c.assignedTo?._id || ""); }}>Edit</ActionBtn>
                                                             <ActionBtn color="red" onClick={() => setDeleteComplaintTarget(c)}>Delete</ActionBtn>
                                                         </>
                                                     )}

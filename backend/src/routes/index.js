@@ -203,6 +203,52 @@ router.patch('/users/:id/role', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid role' });
 
     const prevUser = await User.findById(req.params.id).select('name role');
+    if (!prevUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // ── Guard 0: protect admins ────────────────────────────────
+    if (prevUser.role === 'admin') {
+      return res.status(400).json({
+        success: false,
+        blocked: true,
+        reason: 'is_admin',
+        message: 'Admin role cannot be changed. Admins can only be managed directly.',
+      });
+    }
+
+
+    // ── Guard 1: user → volunteer  ─────────────────────────────
+    // Block if this user has filed complaints (they would then have dual identity as reporter + volunteer)
+    if (prevUser.role === 'user' && role === 'volunteer') {
+      const complaintCount = await Complaint.countDocuments({ user: req.params.id });
+      if (complaintCount > 0) {
+        return res.status(400).json({
+          success: false,
+          blocked: true,
+          reason: 'has_complaints',
+          count: complaintCount,
+          message: `Cannot promote to Volunteer: this user has ${complaintCount} reported complaint${complaintCount > 1 ? 's' : ''}. Delete those complaints first.`,
+        });
+      }
+    }
+
+    // ── Guard 2: volunteer → user  ─────────────────────────────
+    // Block if volunteer is still assigned to active (non-resolved) complaints
+    if (prevUser.role === 'volunteer' && role === 'user') {
+      const assignedCount = await Complaint.countDocuments({
+        assignedTo: req.params.id,
+        status: { $in: ['in_review'] },
+      });
+      if (assignedCount > 0) {
+        return res.status(400).json({
+          success: false,
+          blocked: true,
+          reason: 'is_assigned',
+          count: assignedCount,
+          message: `Cannot demote to User: this volunteer is assigned to ${assignedCount} active complaint${assignedCount > 1 ? 's' : ''}. Reassign or resolve those complaints first.`,
+        });
+      }
+    }
+
     const user = await User.findByIdAndUpdate(
       req.params.id,
       { role },
@@ -226,6 +272,7 @@ router.patch('/users/:id/role', auth, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
+
 
 // ─── Admin: Delete user ───────────────────────────────────────
 router.delete('/users/:id', auth, async (req, res) => {
@@ -255,16 +302,40 @@ router.delete('/users/:id', auth, async (req, res) => {
   }
 });
 
-// ─── Admin: Assign volunteer to complaint ─────────────────────
+// ─── Admin: Assign / Unassign volunteer to complaint ──────────
 router.patch('/complaints/:id/assign', auth, async (req, res) => {
   try {
     if (req.user.role !== 'admin')
       return res.status(403).json({ success: false, message: 'Access denied' });
 
     const { volunteerId } = req.body || {};
-    if (!volunteerId)
-      return res.status(400).json({ success: false, message: 'volunteerId is required' });
 
+    // ── UNASSIGN: empty volunteerId clears the assignment ──────
+    if (!volunteerId) {
+      const complaint = await Complaint.findByIdAndUpdate(
+        req.params.id,
+        { assignedTo: null, status: 'received' },
+        { new: true }
+      )
+        .populate('user', 'name email')
+        .populate('assignedTo', 'name email profilePhoto');
+
+      if (!complaint)
+        return res.status(404).json({ success: false, message: 'Complaint not found' });
+
+      logActivity({
+        activityType: 'volunteer_assigned',
+        actorId: req.user.id,
+        actorName: req.user.name,
+        targetId: complaint._id,
+        targetName: complaint.title,
+        details: 'Volunteer unassigned → back to Pending',
+      });
+
+      return res.json({ success: true, complaint });
+    }
+
+    // ── ASSIGN: set a specific volunteer ───────────────────────
     const volunteer = await User.findById(volunteerId);
     if (!volunteer)
       return res.status(404).json({ success: false, message: 'Volunteer not found' });
