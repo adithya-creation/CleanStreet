@@ -4,6 +4,11 @@ import Footer from "../Components/common/Footer";
 import { getAllComplaints, updateComplaintStatus, deleteComplaint, assignVolunteer } from "../services/complaintService";
 import { getAllUsers, updateUserRole, deleteUser } from "../services/authService";
 import api from "../services/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
+
 
 import {
     PieChart,
@@ -117,6 +122,7 @@ const AdminDashboard = () => {
     const [roleFilter, setRoleFilter] = useState("all");
     const [statusFilter, setStatusFilter] = useState("all");
     const [locationFilter, setLocationFilter] = useState("all");
+    const [showReportBox, setShowReportBox] = useState(false);
 
     // Edit role state
     const [editingUserId, setEditingUserId] = useState(null);
@@ -340,6 +346,66 @@ const AdminDashboard = () => {
         </button>
     );
 
+        /* REPORT FUNCTIONS */
+
+        const downloadPDF = () => {
+
+            const doc = new jsPDF();
+
+            doc.text("Complaints Report", 14, 15);
+
+            const rows = complaints.map(c => [
+                c.title,
+                c.user?.name || "Unknown",
+                c.address || "N/A",
+                c.type || "Other",
+                c.status,
+                c.assignedTo?.name || "-",
+                c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""
+            ]);
+
+            autoTable(doc,{
+                head:[["Title","Reported By","Location","Type","Status","Assigned To","Date"]],
+                body:rows,
+                startY:25
+            });
+
+            doc.save("complaints_report.pdf");
+
+            setShowReportBox(false);
+        };
+
+        const downloadExcel = () => {
+
+            const data = complaints.map(c => ({
+                Title: c.title,
+                ReportedBy: c.user?.name || "Unknown",
+                Location: c.address || "N/A",
+                Type: c.type || "Other",
+                Status: c.status,
+                AssignedTo: c.assignedTo?.name || "-",
+                Date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""
+            }));
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Complaints");
+
+            const excelBuffer = XLSX.write(workbook,{
+                bookType:"xlsx",
+                type:"array"
+            });
+
+            const fileData = new Blob([excelBuffer],{
+                type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            });
+
+            saveAs(fileData,"complaints_report.xlsx");
+
+            setShowReportBox(false);
+        };
+
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] flex flex-col">
 
@@ -348,9 +414,24 @@ const AdminDashboard = () => {
             <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-10">
 
                 {/* header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-black text-gray-800 tracking-tight">Admin Dashboard</h1>
-                    <p className="text-gray-500 font-medium mt-1">Full platform overview &amp; management</p>
+                <div className="mb-8 flex items-center">
+
+                    <div>
+                        <h1 className="text-4xl font-black text-gray-800 tracking-tight">
+                            Admin Dashboard
+                        </h1>
+                        <p className="text-gray-500 font-medium mt-1">
+                            Full platform overview & management
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => setShowReportBox(true)}
+                        className="ml-auto bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-xl text-sm font-bold"
+                    >
+                        Download Report
+                    </button>
+
                 </div>
 
                 {/* tab nav */}
@@ -910,6 +991,50 @@ const AdminDashboard = () => {
                 )}
 
             </div>
+            {/* REPORT POPUP */}
+
+            {showReportBox && (
+
+                <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+
+                    <div className="bg-white rounded-2xl p-8 w-[300px] shadow-xl text-center">
+
+                        <h3 className="text-lg font-bold text-gray-800 mb-6">
+                            Select Report Format
+                        </h3>
+
+                        <div className="flex flex-col gap-3">
+
+                            <button
+                                onClick={downloadPDF}
+                                className="bg-red-400 hover:bg-red-500 text-white py-2 rounded-lg font-semibold"
+                            >
+                                Download PDF
+                            </button>
+
+                            <button
+                                onClick={downloadExcel}
+                                className="bg-green-400 hover:bg-green-500 text-white py-2 rounded-lg font-semibold"
+                            >
+                                Download Excel
+                            </button>
+
+                            <button
+                                onClick={() => setShowReportBox(false)}
+                                className="text-gray-400 text-sm mt-2"
+                            >
+                                Cancel
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            )}
+
+
 
             <Footer />
 
