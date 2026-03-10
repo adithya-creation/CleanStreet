@@ -246,10 +246,10 @@ Recent Activities
 
 <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-16">
 
-<StatCard label="Total Users" val={users.length}/>
-<StatCard label="Total Complaints" val={complaints.length}/>
-<StatCard label="Pending Complaints" val={pending.length}/>
-<StatCard label="Resolved Complaints" val={resolved.length}/>
+<StatCard label="Total Users" val={loading ? "..." : users.length}/>
+<StatCard label="Total Complaints" val={loading ? "..." : complaints.length}/>
+<StatCard label="Pending Complaints" val={loading ? "..." : pending.length}/>
+<StatCard label="Resolved Complaints" val={loading ? "..." : resolved.length}/>
 
 </div>
 
