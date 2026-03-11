@@ -82,7 +82,27 @@ const ReportIssue = () => {
       async ({ coords }) => {
         const { latitude: lat, longitude: lng } = coords;
         setPosition([lat, lng]);
-        await getAddress(lat, lng);
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`
+          );
+          const data = await res.json();
+
+          const city =
+            data.address?.city ||
+            data.address?.town ||
+            data.address?.village ||
+            data.address?.municipality ||
+            '';
+          const state = data.address?.state || '';
+          const country = data.address?.country || '';
+
+          const location = [city, state, country].filter(Boolean).join(', ');
+
+          setFormData(prev => ({ ...prev, address: location || `${lat}, ${lng}` }));
+        } catch {
+          setFormData(prev => ({ ...prev, address: `${lat}, ${lng}` }));
+        }
         setDetectingLocation(false);
       },
       (err) => {
