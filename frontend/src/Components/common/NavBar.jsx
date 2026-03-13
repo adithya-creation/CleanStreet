@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { isAuthenticated, getCurrentUser, fetchMe, logout } from '../../services/authService';
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Bell } from 'lucide-react';
+import { isAuthenticated, getCurrentUser, fetchMe, logout, getNotifications, deleteNotification } from '../../services/authService';
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Bell, Trash2 } from 'lucide-react';
 
 // SVG Logo mark
 const Logo = () => (
@@ -53,30 +53,19 @@ const NavBar = () => {
         }).catch(() => { });
     }, []);
 
+    const fetchNotifications = async () => {
+        try {
+            const data = await getNotifications();
+            setNotifications(data);
+        } catch (err) {
+            console.error('Failed to fetch notifications:', err);
+        }
+    };
+
     useEffect(() => {
-
-if(role === "user"){
-    setNotifications([
-        { id:1, text:"Your complaint has been assigned to a volunteer." },
-        { id:2, text:"Your complaint #204 status updated." }
-    ]);
-}
-
-else if(role === "volunteer"){
-    setNotifications([
-        { id:1, text:"New complaint assigned to you." },
-        { id:2, text:"Complaint #198 needs update." }
-    ]);
-}
-
-else if(role === "admin"){
-    setNotifications([
-        { id:1, text:"New complaint reported." },
-        { id:2, text:"Volunteer approved a complaint." }
-    ]);
-}
-
-},[role]);
+        if (!isAuthenticated()) return;
+        fetchNotifications();
+    }, [role]);
 
     const navLinks = [
   { label: 'Dashboard', path: '/dashboard' },
@@ -143,49 +132,84 @@ else if(role === "admin"){
 
   {/* Bell Button */}
   <button
-    onClick={() => setNotifOpen(!notifOpen)}
-    className="relative p-2 rounded-full hover:bg-gray-200 transition duration-200"
+    onClick={() => {
+        setNotifOpen(!notifOpen);
+        if (!notifOpen) fetchNotifications(); // Refresh on open
+    }}
+    className={`relative p-2.5 rounded-xl transition duration-200 ${notifOpen ? 'bg-teal-50 text-teal-600' : 'hover:bg-gray-100 text-gray-600'}`}
   >
-    <Bell size={22} className="text-gray-700" />
+    <Bell size={22} className={notifOpen ? 'text-teal-600' : 'text-gray-600'} />
 
-    {notifications.length > 0 && (
+    {notifications.filter(n => !n.isRead).length > 0 && (
       <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center rounded-full shadow-md">
-  {notifications.length}
+  {notifications.filter(n => !n.isRead).length}
 </span>
     )}
   </button>
 
   {/* Notification Dropdown */}
   {notifOpen && (
-    <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+    <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-gray-100 z-50 overflow-hidden">
 
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
-        <h3 className="font-semibold text-gray-700">Notifications</h3>
-        <span className="text-xs text-gray-400">
-          {notifications.length} new
-        </span>
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100 bg-gray-50/50">
+        <h3 className="font-bold text-gray-800 tracking-tight">Notifications</h3>
+        {notifications.filter(n => !n.isRead).length > 0 && (
+          <span className="text-xs font-semibold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">
+            {notifications.filter(n => !n.isRead).length} new
+          </span>
+        )}
       </div>
 
       {/* Notification List */}
-      <div className="max-h-64 overflow-y-auto">
+      <div className="max-h-80 overflow-y-auto custom-scrollbar">
 
         {notifications.length === 0 ? (
-          <p className="text-center text-gray-400 py-6 text-sm">
-            No notifications
-          </p>
+          <div className="flex flex-col items-center justify-center py-10 px-4 text-center">
+            <Bell size={24} className="text-gray-300 mb-2" />
+            <p className="text-sm font-medium text-gray-500">No notifications yet</p>
+          </div>
         ) : (
-          notifications.slice(0, 3).map((n) => (
+          notifications.slice(0, 5).map((n) => (
             <div
-              key={n.id}
-              className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b"
+              key={n._id}
+              onClick={async () => {
+                  if (!n.isRead) {
+                      try {
+                          await import('../../services/authService').then(m => m.markNotificationRead(n._id));
+                          fetchNotifications(); // Refresh inline
+                      } catch(e) {}
+                  }
+                  setNotifOpen(false);
+                  navigate('/notifications');
+              }}
+              className={`group flex items-start gap-3 px-5 py-4 cursor-pointer border-b border-gray-50 transition-colors ${!n.isRead ? 'bg-teal-50/30 hover:bg-teal-50/60' : 'hover:bg-gray-50'}`}
             >
-              
+              <div className={`mt-1.5 flex-shrink-0 w-2 h-2 rounded-full ${!n.isRead ? 'bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]' : 'bg-transparent'}`}></div>
 
               {/* Text */}
-              <div className="text-sm text-gray-700 leading-snug">
-                {n.text}
+              <div className="flex-grow">
+                  <p className={`text-sm leading-snug ${!n.isRead ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                    {n.message}
+                  </p>
+                  <p className="text-[11px] font-medium text-gray-400 mt-1.5">
+                    {new Date(n.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </p>
               </div>
+
+              {/* Delete Button */}
+              <button 
+                  onClick={(e) => {
+                      e.stopPropagation(); // Prevents marking as read/navigating
+                      deleteNotification(n._id)
+                          .then(() => fetchNotifications())
+                          .catch(console.error);
+                  }}
+                  className="flex-shrink-0 opacity-0 group-hover:opacity-100 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all"
+                  title="Delete"
+              >
+                  <Trash2 size={16} />
+              </button>
             </div>
           ))
         )}

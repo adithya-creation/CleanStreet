@@ -104,3 +104,9 @@ export const markAllNotificationsRead = async () => {
     const res = await api.patch("/notifications/read-all");
     return res.data;
 };
+
+// Delete a notification
+export const deleteNotification = async (id) => {
+    const res = await api.delete(`/notifications/${id}`);
+    return res.data;
+};

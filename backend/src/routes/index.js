@@ -6,6 +6,7 @@ const Complaint = require('../models/Complaint');
 const Vote = require('../models/Vote');
 const Comment = require('../models/Comment');
 const AdminLog = require('../models/AdminLog');
+const Notification = require('../models/Notification');
 const auth = require('../middleware/auth');
 const { isVolunteer } = require('../middleware/auth');
 
@@ -15,6 +16,71 @@ const router = express.Router();
 const logActivity = (data) => {
   AdminLog.create(data).catch(err => console.error('ActivityLog error:', err));
 };
+
+// ─── Helper: create notification (fire-and-forget, never throws) ────
+const createNotification = (userId, complaintId, message, type) => {
+  Notification.create({
+    user: userId,
+    complaint: complaintId,
+    message,
+    type,
+  }).catch(err => console.error('Notification error:', err));
+};
+
+// ─── Notifications: Get all for current user ──────────────────
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const notifications = await Notification.find({ user: req.user.id })
+      .populate('complaint', 'title')
+      .sort({ createdAt: -1 });
+    return res.json({ success: true, notifications });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Notifications: Mark as read ─────────────────────────────
+router.patch('/notifications/:id/read', auth, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, user: req.user.id },
+      { isRead: true },
+      { new: true }
+    );
+    if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
+    return res.json({ success: true, notification });
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Notifications: Mark all as read ─────────────────────────
+router.patch('/notifications/read-all', auth, async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { user: req.user.id, isRead: false },
+      { $set: { isRead: true } }
+    );
+    return res.json({ success: true, message: 'All notifications marked as read' });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+// ─── Notifications: Delete a notification ────────────────────
+router.delete('/notifications/:id', auth, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndDelete({ _id: req.params.id, user: req.user.id });
+    if (!notification) return res.status(404).json({ success: false, message: 'Notification not found' });
+    return res.json({ success: true, message: 'Notification deleted' });
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
 
 const isValidEmail = (email = '') => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isValidPassword = (password = '') => typeof password === 'string' && password.length >= 6;
@@ -332,6 +398,8 @@ router.patch('/complaints/:id/assign', auth, async (req, res) => {
         details: 'Volunteer unassigned → back to Pending',
       });
 
+      createNotification(complaint.user._id, complaint._id, `Your complaint "${complaint.title}" is back to Pending. Admin has unassigned the volunteer.`, 'status_update');
+
       return res.json({ success: true, complaint });
     }
 
@@ -359,6 +427,9 @@ router.patch('/complaints/:id/assign', auth, async (req, res) => {
       targetName: complaint.title,
       details: `Assigned to ${volunteer.name}`,
     });
+
+    createNotification(complaint.user._id, complaint._id, `Your complaint "${complaint.title}" has been assigned to a volunteer.`, 'assignment');
+    createNotification(volunteerId, complaint._id, `Admin has assigned you to a new complaint: "${complaint.title}".`, 'assignment');
 
     return res.json({ success: true, complaint });
   } catch (error) {
@@ -509,6 +580,10 @@ router.patch('/complaints/:id/status', auth, async (req, res) => {
       targetName: complaint.title,
       details: `${statusLabels[prev?.status] || prev?.status} → ${statusLabels[status] || status}`,
     });
+
+    if (complaint.user) {
+      createNotification(complaint.user, complaint._id, `Status of your complaint "${complaint.title}" updated to ${statusLabels[status] || status}.`, 'status_update');
+    }
 
     return res.json({ success: true, complaint });
   } catch (error) {
@@ -825,6 +900,8 @@ router.post('/complaints/:id/accept', auth, isVolunteer, async (req, res) => {
       details: `Accepted by volunteer ${req.user.name}`,
     });
 
+    createNotification(complaint.user._id, complaint._id, `Volunteer ${req.user.name} has accepted your complaint "${complaint.title}".`, 'assignment');
+
     console.log(`[Volunteer:Accept] ✅ Complaint "${complaint.title}" accepted by ${req.user.email} → status: in_review`);
     return res.json({ success: true, message: 'Complaint accepted and is now In Review', complaint });
   } catch (error) {
@@ -873,6 +950,8 @@ router.post('/complaints/:id/reject', auth, isVolunteer, async (req, res) => {
       details: `Rejected by volunteer ${req.user.name} → back to Pending`,
     });
 
+    createNotification(complaint.user._id, complaint._id, `Your complaint "${complaint.title}" is back to Pending as the volunteer unassigned themselves.`, 'status_update');
+
     console.log(`[Volunteer:Reject] ✅ Complaint "${complaint.title}" rejected by ${req.user.email} → status: received`);
     return res.json({ success: true, message: 'Complaint rejected and returned to received', complaint });
   } catch (error) {
@@ -920,6 +999,8 @@ router.patch('/complaints/:id/resolve', auth, isVolunteer, async (req, res) => {
       targetName: complaint.title,
       details: `Resolved by volunteer ${req.user.name}`,
     });
+
+    createNotification(complaint.user._id, complaint._id, `Your complaint "${complaint.title}" has been marked as resolved by volunteer ${req.user.name}.`, 'status_update');
 
     console.log(`[Volunteer:Resolve] ✅ Complaint "${complaint.title}" resolved by ${req.user.email}`);
     return res.json({ success: true, message: 'Complaint marked as Resolved', complaint });
