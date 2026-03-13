@@ -347,65 +347,156 @@ const AdminDashboard = () => {
     );
 
         /* REPORT FUNCTIONS */
+const downloadPDF = () => {
 
-        const downloadPDF = () => {
+    const doc = new jsPDF();
 
-            const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Admin Dashboard Report", 14, 15);
 
-            doc.text("Complaints Report", 14, 15);
+    doc.setFontSize(11);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
 
-            const rows = complaints.map(c => [
-                c.title,
-                c.user?.name || "Unknown",
-                c.address || "N/A",
-                c.type || "Other",
-                c.status,
-                c.assignedTo?.name || "-",
-                c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""
-            ]);
+    /* ---------- SUMMARY SECTION ---------- */
 
-            autoTable(doc,{
-                head:[["Title","Reported By","Location","Type","Status","Assigned To","Date"]],
-                body:rows,
-                startY:25
-            });
+    doc.setFontSize(14);
+    doc.text("Platform Summary", 14, 35);
 
-            doc.save("complaints_report.pdf");
+    const summaryRows = [
+        ["Total Users", users.length],
+        ["Total Complaints", complaints.length],
+        ["Pending Complaints", pending.length],
+        ["In Review Complaints", inReview.length],
+        ["Resolved Complaints", resolved.length],
+    ];
 
-            setShowReportBox(false);
-        };
+    autoTable(doc, {
+        startY: 40,
+        head: [["Metric", "Value"]],
+        body: summaryRows
+    });
 
-        const downloadExcel = () => {
+    /* ---------- USER ROLE BREAKDOWN ---------- */
 
-            const data = complaints.map(c => ({
-                Title: c.title,
-                ReportedBy: c.user?.name || "Unknown",
-                Location: c.address || "N/A",
-                Type: c.type || "Other",
-                Status: c.status,
-                AssignedTo: c.assignedTo?.name || "-",
-                Date: c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""
-            }));
+    doc.text("User Roles", 14, doc.lastAutoTable.finalY + 15);
 
-            const worksheet = XLSX.utils.json_to_sheet(data);
-            const workbook = XLSX.utils.book_new();
+    const roleRows = roleData.map(r => [r.name, r.value]);
 
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Complaints");
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [["Role", "Count"]],
+        body: roleRows
+    });
 
-            const excelBuffer = XLSX.write(workbook,{
-                bookType:"xlsx",
-                type:"array"
-            });
+    /* ---------- COMPLAINT TYPES ---------- */
 
-            const fileData = new Blob([excelBuffer],{
-                type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            });
+    doc.text("Complaint Types", 14, doc.lastAutoTable.finalY + 15);
 
-            saveAs(fileData,"complaints_report.xlsx");
+    const typeRows = typeData.map(t => [t.name, t.value]);
 
-            setShowReportBox(false);
-        };
+    autoTable(doc, {
+        startY: doc.lastAutoTable.finalY + 20,
+        head: [["Type", "Count"]],
+        body: typeRows
+    });
 
+    /* ---------- COMPLAINTS TABLE ---------- */
+
+    doc.text("Complaints List", 14, doc.lastAutoTable.finalY + 15);
+
+    const rows = complaints.map(c => [
+        c.title,
+        c.user?.name || "Unknown",
+        c.address || "N/A",
+        c.type || "Other",
+        c.status,
+        c.assignedTo?.name || "-",
+        c.createdAt ? new Date(c.createdAt).toLocaleDateString() : ""
+    ]);
+
+    autoTable(doc,{
+        startY: doc.lastAutoTable.finalY + 20,
+        head:[["Title","Reported By","Location","Type","Status","Assigned To","Date"]],
+        body:rows
+    });
+
+    doc.save("admin_dashboard_report.pdf");
+
+    setShowReportBox(false);
+};
+    const downloadExcel = () => {
+
+    /* ---------- CREATE WORKBOOK ---------- */
+
+    const workbook = XLSX.utils.book_new();
+
+    /* ---------- SUMMARY SHEET ---------- */
+
+    const summaryData = [
+        { Metric: "Total Users", Value: users.length },
+        { Metric: "Total Complaints", Value: complaints.length },
+        { Metric: "Pending", Value: pending.length },
+        { Metric: "In Review", Value: inReview.length },
+        { Metric: "Resolved", Value: resolved.length },
+    ];
+
+    const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+    /* ---------- USER ROLES ---------- */
+
+    const roles = users.reduce((acc, u) => {
+        acc[u.role] = (acc[u.role] || 0) + 1;
+        return acc;
+    }, {});
+
+    const roleDataExcel = Object.keys(roles).map(role => ({
+        Role: role,
+        Count: roles[role]
+    }));
+
+    const roleSheet = XLSX.utils.json_to_sheet(roleDataExcel);
+    XLSX.utils.book_append_sheet(workbook, roleSheet, "User Roles");
+
+    /* ---------- COMPLAINT TYPES ---------- */
+
+    const types = complaints.reduce((acc, c) => {
+        const t = c.type || "Other";
+        acc[t] = (acc[t] || 0) + 1;
+        return acc;
+    }, {});
+
+    const typeDataExcel = Object.keys(types).map(type => ({
+        Type: type,
+        Count: types[type]
+    }));
+
+    const typeSheet = XLSX.utils.json_to_sheet(typeDataExcel);
+    XLSX.utils.book_append_sheet(workbook, typeSheet, "Complaint Types");
+
+    /* ---------- COMPLAINTS LIST ---------- */
+
+    const complaintsData = complaints.map(c => ({
+        Title: c.title,
+        ReportedBy: c.user?.name || "Unknown",
+        Location: c.address || "N/A",
+        Type: c.type || "Other",
+        Status: c.status,
+        AssignedTo: c.assignedTo?.name || "-",
+        Date: c.createdAt
+            ? new Date(c.createdAt).toLocaleDateString()
+            : ""
+    }));
+
+    const complaintsSheet = XLSX.utils.json_to_sheet(complaintsData);
+    XLSX.utils.book_append_sheet(workbook, complaintsSheet, "Complaints");
+
+    /* ---------- EXPORT FILE ---------- */
+
+    XLSX.writeFile(workbook, "admin_dashboard_report.xlsx");
+
+    setShowReportBox(false);
+};
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#FFF6F0] to-[#E2F5F2] flex flex-col">
 
