@@ -9,6 +9,7 @@ import EditProfile from './Pages/Profile';
 import ViewComplaints from './Pages/ViewComplaints';
 import { isAuthenticated } from './services/authService';
 import AdminDashboard from "./Pages/AdminDashboard";
+import Notifications from "./Pages/Notifications";
 
 // Redirects to /login if no JWT token is present
 const ProtectedRoute = ({ children }) => {
@@ -24,6 +25,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/admin" element={<AdminDashboard/>}/>
+        <Route path="/notifications" element={<Notifications />} />
 
         {/* Protected routes — require JWT token */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

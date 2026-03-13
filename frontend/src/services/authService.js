@@ -84,3 +84,23 @@ export const deleteUser = async (userId) => {
     const res = await api.delete(`/users/${userId}`);
     return res.data;
 };
+
+// ================= NOTIFICATIONS =================
+
+// Get notifications for current logged user
+export const getNotifications = async () => {
+    const res = await api.get("/notifications");
+    return res.data.notifications;
+};
+
+// Mark notification as read
+export const markNotificationRead = async (id) => {
+    const res = await api.patch(`/notifications/${id}/read`);
+    return res.data;
+};
+
+// Mark all notifications as read
+export const markAllNotificationsRead = async () => {
+    const res = await api.patch("/notifications/read-all");
+    return res.data;
+};
