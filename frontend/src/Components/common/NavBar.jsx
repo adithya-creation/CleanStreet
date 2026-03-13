@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard } from 'lucide-react';
 import { isAuthenticated, getCurrentUser, fetchMe, logout } from '../../services/authService';
+import { Menu, X, ChevronDown, User, LogOut, LayoutDashboard, Bell } from 'lucide-react';
 
 // SVG Logo mark
 const Logo = () => (
@@ -24,6 +24,9 @@ const NavBar = () => {
 
     const [user, setUser] = useState(getCurrentUser());
     const role = user?.role; // 'user' | 'volunteer' | 'admin'
+
+    const [notifications, setNotifications] = useState([]);
+    const [notifOpen, setNotifOpen] = useState(false);
 
     const userName = user?.name || 'User';
     const userPhoto = user?.profilePhoto || null;
@@ -49,6 +52,31 @@ const NavBar = () => {
             }
         }).catch(() => { });
     }, []);
+
+    useEffect(() => {
+
+if(role === "user"){
+    setNotifications([
+        { id:1, text:"Your complaint has been assigned to a volunteer." },
+        { id:2, text:"Your complaint #204 status updated." }
+    ]);
+}
+
+else if(role === "volunteer"){
+    setNotifications([
+        { id:1, text:"New complaint assigned to you." },
+        { id:2, text:"Complaint #198 needs update." }
+    ]);
+}
+
+else if(role === "admin"){
+    setNotifications([
+        { id:1, text:"New complaint reported." },
+        { id:2, text:"Volunteer approved a complaint." }
+    ]);
+}
+
+},[role]);
 
     const navLinks = [
   { label: 'Dashboard', path: '/dashboard' },
@@ -104,12 +132,83 @@ const NavBar = () => {
                         </button>
                     ))}
                 </div>
-
                 {/* Desktop Right Side */}
-                <div className="hidden md:flex items-center gap-3">
-                        {loggedIn ? (
-                        /* Logged in: user avatar + dropdown */
-                        <div className="relative">
+               <div className="hidden md:flex items-center gap-3">
+                 {loggedIn ? (
+                 <>
+                    {/* Notification Bell */}
+                    <div className="relative">
+
+
+
+  {/* Bell Button */}
+  <button
+    onClick={() => setNotifOpen(!notifOpen)}
+    className="relative p-2 rounded-full hover:bg-gray-200 transition duration-200"
+  >
+    <Bell size={22} className="text-gray-700" />
+
+    {notifications.length > 0 && (
+      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-semibold flex items-center justify-center rounded-full shadow-md">
+  {notifications.length}
+</span>
+    )}
+  </button>
+
+  {/* Notification Dropdown */}
+  {notifOpen && (
+    <div className="absolute right-0 mt-3 w-80 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+        <h3 className="font-semibold text-gray-700">Notifications</h3>
+        <span className="text-xs text-gray-400">
+          {notifications.length} new
+        </span>
+      </div>
+
+      {/* Notification List */}
+      <div className="max-h-64 overflow-y-auto">
+
+        {notifications.length === 0 ? (
+          <p className="text-center text-gray-400 py-6 text-sm">
+            No notifications
+          </p>
+        ) : (
+          notifications.slice(0, 3).map((n) => (
+            <div
+              key={n.id}
+              className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer border-b"
+            >
+              
+
+              {/* Text */}
+              <div className="text-sm text-gray-700 leading-snug">
+                {n.text}
+              </div>
+            </div>
+          ))
+        )}
+
+      </div>
+
+      {/* View More */}
+      <button
+        onClick={() => {
+          setNotifOpen(false);
+          navigate("/notifications");
+        }}
+        className="w-full py-3 text-sm font-semibold text-teal-600 hover:bg-teal-50 transition"
+      >
+        View All Notifications →
+      </button>
+
+    </div>
+  )}
+</div>
+
+                    {/* Profile Dropdown */}
+                    <div className="relative">
                             <button
                                 onClick={() => setDropdownOpen(!dropdownOpen)}
                                 className="flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full bg-white/70 hover:bg-white transition-all border border-white/60 shadow-sm"
@@ -148,6 +247,7 @@ const NavBar = () => {
                                 </div>
                             )}
                         </div>
+                        </>
                     ) : (
                         /* Not logged in: Login + Get Started */
                         <>
