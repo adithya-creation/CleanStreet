@@ -80,7 +80,7 @@ const NavBar = () => {
 
   { label: 'View Complaints', path: '/complaints' },
 
-  
+  { label: 'Feedback', path: '/feedback' }
 ];
 
     const isActive = (path) => location.pathname === path;

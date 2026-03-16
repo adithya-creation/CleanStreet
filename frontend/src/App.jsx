@@ -10,6 +10,7 @@ import ViewComplaints from './Pages/ViewComplaints';
 import { isAuthenticated } from './services/authService';
 import AdminDashboard from "./Pages/AdminDashboard";
 import Notifications from "./Pages/Notifications";
+import Feedback from "./Pages/Feedback";
 
 // Redirects to /login if no JWT token is present
 const ProtectedRoute = ({ children }) => {
@@ -20,6 +21,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/feedback" element={<Feedback />} />
         {/* Public routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
