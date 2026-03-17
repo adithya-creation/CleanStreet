@@ -9,6 +9,7 @@ const AdminLog = require('../models/AdminLog');
 const Notification = require('../models/Notification');
 const auth = require('../middleware/auth');
 const { isVolunteer } = require('../middleware/auth');
+const Feedback = require("../models/Feedback");
 
 const router = express.Router();
 
@@ -1027,5 +1028,64 @@ router.get('/volunteer/stats', auth, isVolunteer, async (req, res) => {
   } catch (error) {
     console.error('[Volunteer:Stats] error:', error);
     return res.status(500).json({ success: false, message: 'Internal server error' });
+  }
+});
+
+//feedback
+
+router.post("/feedback", async (req, res) => {
+  try {
+    const {
+      complaintId,
+      rating,
+      serviceQuality,
+      responseTime,
+      professionalism,
+      comment,
+    } = req.body;
+
+    // 🔥 get complaint
+    const complaint = await Complaint.findById(complaintId);
+
+    if (!complaint) {
+      return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    // 🔥 optional: allow only resolved complaints
+    
+    const feedback = await Feedback.create({
+      complaintId,
+      userId: complaint.user,        // ✅ user who created complaint
+      volunteerId: complaint.assignedTo, // ✅ volunteer from your model
+      rating,
+      serviceQuality,
+      responseTime,
+      professionalism,
+      comment,
+    });
+
+    res.json({ success: true, feedback });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+router.get("/feedback", async (req, res) => {
+  try {
+    const feedbacks = await Feedback.find()
+      .populate("complaintId", "title")
+      .populate("userId", "name")
+      .populate("volunteerId", "name");
+       console.log("FEEDBACKS:", feedbacks);
+
+
+    res.json({
+      success: true,
+      feedbacks,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
   }
 });

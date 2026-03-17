@@ -52,9 +52,10 @@ const Feedback = () => {
       setComment("");
 
     } catch (err) {
-      console.error("Feedback submission failed", err);
-      alert("Something went wrong. Please try again.");
-    }
+  console.error("FULL ERROR:", err);
+  console.error("ERROR RESPONSE:", err.response);
+  alert(err.response?.data?.message || "Something went wrong");
+}
   };
 
   return (
