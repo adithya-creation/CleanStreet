@@ -80,7 +80,9 @@ const NavBar = () => {
 
   { label: 'View Complaints', path: '/complaints' },
 
-  { label: 'Feedback', path: '/feedback' }
+  ...(role !== 'admin' 
+    ? [{ label: 'Feedback', path: '/feedback' }] 
+    : [])
 ];
 
     const isActive = (path) => location.pathname === path;
@@ -177,7 +179,7 @@ const NavBar = () => {
                   if (!n.isRead) {
                       try {
                           await import('../../services/authService').then(m => m.markNotificationRead(n._id));
-                          fetchNotifications(); // Refresh inline
+                          fetchNotifications(); 
                       } catch(e) {}
                   }
                   setNotifOpen(false);
@@ -200,7 +202,7 @@ const NavBar = () => {
               {/* Delete Button */}
               <button 
                   onClick={(e) => {
-                      e.stopPropagation(); // Prevents marking as read/navigating
+                      e.stopPropagation(); 
                       deleteNotification(n._id)
                           .then(() => fetchNotifications())
                           .catch(console.error);
@@ -273,7 +275,6 @@ const NavBar = () => {
                         </div>
                         </>
                     ) : (
-                        /* Not logged in: Login + Get Started */
                         <>
                             <button
                                 onClick={() => navigate('/login')}
@@ -357,7 +358,6 @@ const NavBar = () => {
                             )}
                         </div>
                     ) : (
-                        /* Not logged in: Login + Get Started */
                         <>
                             <button
                                 onClick={() => navigate('/login')}
