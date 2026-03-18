@@ -1,31 +1,24 @@
-import api from "./api"; 
+import api from "./api";
 
-// 1. ADD THIS: This is what Feedback.jsx is looking for!
+/* ───────── USER: Submit Feedback ───────── */
 export const submitFeedback = async (feedbackData) => {
-    try {
-        // feedbackData should be { type, rating, comment, complaintId }
-        const response = await api.post("/feedback/submit", feedbackData);
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
+  try {
+    const res = await api.post("/feedback", feedbackData);
+    return res.data;
+  } catch (err) {
+    console.error("Submit Feedback Error:", err.response || err);
+    throw err;
+  }
 };
 
-// 2. Keep your existing Admin functions below
-export const getAllFeedbacks = async () => {
-    try {
-        const response = await api.get("/feedback/all");
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
-};
 
-export const replyToFeedback = async (feedbackId, adminReply) => {
-    try {
-        const response = await api.post(`/feedback/reply/${feedbackId}`, { adminReply });
-        return response.data;
-    } catch (error) {
-        throw error;
-    }
+/* ───────── ADMIN: Get All Feedback ───────── */
+export const getAllFeedback = async () => {
+  try {
+    const res = await api.get("/feedback");
+    return res.data;
+  } catch (err) {
+    console.error("Get All Feedback Error:", err.response || err);
+    throw err;
+  }
 };

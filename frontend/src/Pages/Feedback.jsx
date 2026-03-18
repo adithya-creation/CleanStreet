@@ -75,8 +75,14 @@ const Feedback = () => {
       alert("Platform feedback submitted!");
       resetForm();
     } catch (err) {
-      alert("Error submitting feedback");
-    }
+  console.error("FULL ERROR:", err);
+
+  const message =
+    err.response?.data?.message || "Something went wrong";
+
+  showToast(message); // replace alert later
+}
+
   };
 
   const resetForm = () => {
