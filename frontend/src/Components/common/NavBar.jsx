@@ -80,6 +80,10 @@ const NavBar = () => {
 
   { label: 'View Complaints', path: '/complaints' },
 
+  ...(role === 'volunteer'
+    ? [{ label: 'My Ratings', path: '/volunteer/ratings' }]
+    : []),
+
   ...(role !== 'admin' 
     ? [{ label: 'Feedback', path: '/feedback' }] 
     : [])

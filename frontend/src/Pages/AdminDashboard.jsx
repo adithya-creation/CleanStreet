@@ -3,6 +3,7 @@ import NavBar from "../Components/common/NavBar";
 import Footer from "../Components/common/Footer";
 import { getAllComplaints, updateComplaintStatus, deleteComplaint, assignVolunteer } from "../services/complaintService";
 import { getAllUsers, updateUserRole, deleteUser } from "../services/authService";
+import { getAdminPlatformFeedback, getAdminVolunteerRatings, adminRateVolunteer } from "../services/feedbackService";
 import api from "../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -24,6 +25,8 @@ import {
     Line,
     CartesianGrid
 } from "recharts";
+
+import { Star, AlertTriangle, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 
 const COLORS = ["#14B8A6", "#F59E0B", "#EF4444", "#6366F1", "#8B5CF6"];
 
@@ -154,11 +157,25 @@ const AdminDashboard = () => {
     // Role change block popup
     const [roleErrorModal, setRoleErrorModal] = useState(null); // { message, reason }
 
+    // Feedback tab state
+    const [platformFeedbacks, setPlatformFeedbacks] = useState([]);
+    const [platformFeedbackStats, setPlatformFeedbackStats] = useState({ totalFeedbacks: 0, avgRating: 0 });
+    const [volunteerRatings, setVolunteerRatings] = useState([]);
+    const [feedbackSubTab, setFeedbackSubTab] = useState('platform');
+    const [feedbackLoading, setFeedbackLoading] = useState(false);
+    const [expandedVolunteer, setExpandedVolunteer] = useState(null);
+    const [rateModal, setRateModal] = useState(null); // { volunteerId, volunteerName }
+    const [rateValue, setRateValue] = useState(0);
+    const [rateComment, setRateComment] = useState('');
+    const [rateLoading, setRateLoading] = useState(false);
+    const [rateHover, setRateHover] = useState(0);
+
     useEffect(() => { fetchData(); }, []);
 
     // Fetch logs whenever tab becomes active or limit changes
     useEffect(() => {
         if (activeTab === "activity") fetchActivityLogs();
+        if (activeTab === "feedback") fetchFeedbackData();
     }, [activeTab, activityLimit]);
 
     const fetchData = async () => {
@@ -183,6 +200,39 @@ const AdminDashboard = () => {
             console.error("Activity logs fetch error:", e);
         } finally {
             setActivityLoading(false);
+        }
+    };
+
+    const fetchFeedbackData = async () => {
+        setFeedbackLoading(true);
+        try {
+            const [pfRes, vrRes] = await Promise.all([
+                getAdminPlatformFeedback(),
+                getAdminVolunteerRatings()
+            ]);
+            setPlatformFeedbacks(pfRes.feedbacks || []);
+            setPlatformFeedbackStats(pfRes.stats || { totalFeedbacks: 0, avgRating: 0 });
+            setVolunteerRatings(vrRes.volunteerRatings || []);
+        } catch (e) {
+            console.error('Feedback data fetch error:', e);
+        } finally {
+            setFeedbackLoading(false);
+        }
+    };
+
+    const handleAdminRate = async () => {
+        if (!rateModal || !rateValue) return;
+        setRateLoading(true);
+        try {
+            await adminRateVolunteer({ volunteerId: rateModal.volunteerId, rating: rateValue, comment: rateComment });
+            setRateModal(null);
+            setRateValue(0);
+            setRateComment('');
+            fetchFeedbackData();
+        } catch (e) {
+            console.error('Admin rate error:', e);
+        } finally {
+            setRateLoading(false);
         }
     };
 
@@ -531,6 +581,7 @@ const downloadPDF = () => {
                     <Tab id="users" label="Manage Users" />
                     <Tab id="complaints" label="View Complaints" />
                     <Tab id="activity" label="Recent Activities" />
+                    <Tab id="feedback" label="Feedback" />
                 </div>
 
                 {/* ── OVERVIEW ─────────────────────────────────────────────── */}
@@ -1078,6 +1129,293 @@ const downloadPDF = () => {
                                 })}
                             </ul>
                         )}
+                    </div>
+                )}
+
+                {/* ── FEEDBACK ────────────────────────────────────────────── */}
+                {activeTab === "feedback" && (
+                    <div>
+                        {/* Sub-tabs */}
+                        <div className="flex gap-3 mb-6">
+                            <button
+                                onClick={() => setFeedbackSubTab('platform')}
+                                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${feedbackSubTab === 'platform' ? 'bg-teal-500 text-white shadow-md' : 'bg-white/60 text-gray-500 border border-white/80 hover:bg-white'}`}
+                            >
+                                Platform Feedback
+                            </button>
+                            <button
+                                onClick={() => setFeedbackSubTab('volunteers')}
+                                className={`px-5 py-2 rounded-full text-sm font-bold transition-all ${feedbackSubTab === 'volunteers' ? 'bg-teal-500 text-white shadow-md' : 'bg-white/60 text-gray-500 border border-white/80 hover:bg-white'}`}
+                            >
+                                Volunteer Ratings
+                            </button>
+                        </div>
+
+                        {feedbackLoading ? (
+                            <div className="flex items-center justify-center py-16">
+                                <div className="w-8 h-8 border-4 border-teal-400 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                        ) : (
+                            <>
+                                {/* ─── PLATFORM FEEDBACK ──────────────── */}
+                                {feedbackSubTab === 'platform' && (
+                                    <div>
+                                        {/* Stats row */}
+                                        <div className="grid grid-cols-2 gap-6 mb-8">
+                                            <div className="bg-white/40 backdrop-blur-md p-6 rounded-[24px] shadow-sm border border-white/60">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400 mb-2">Total Feedback</p>
+                                                <p className="text-4xl font-black text-gray-800">{platformFeedbackStats.totalFeedbacks}</p>
+                                            </div>
+                                            <div className="bg-white/40 backdrop-blur-md p-6 rounded-[24px] shadow-sm border border-white/60">
+                                                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-gray-400 mb-2">Average Rating</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-4xl font-black text-gray-800">{platformFeedbackStats.avgRating || '—'}</p>
+                                                    <Star size={24} className="text-yellow-400 fill-yellow-400" />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Feedback cards */}
+                                        {platformFeedbacks.length === 0 ? (
+                                            <div className="bg-white/40 backdrop-blur-md rounded-3xl shadow-sm border border-white/60 p-12 text-center">
+                                                <MessageSquare size={32} className="text-gray-300 mx-auto mb-3" />
+                                                <p className="text-gray-400 font-semibold">No platform feedback received yet.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {platformFeedbacks.map(fb => (
+                                                    <div key={fb._id} className="bg-white/40 backdrop-blur-md rounded-2xl shadow-sm border border-white/60 p-6 hover:shadow-md transition-all">
+                                                        <div className="flex items-start justify-between gap-4 mb-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm uppercase overflow-hidden">
+                                                                    {fb.userId?.profilePhoto
+                                                                        ? <img src={fb.userId.profilePhoto} alt="" className="w-full h-full object-cover" />
+                                                                        : (fb.userId?.name || 'U')[0]
+                                                                    }
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-gray-800">{fb.userId?.name || 'Anonymous'}</p>
+                                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${fb.userRole === 'volunteer' ? 'bg-teal-100 text-teal-700' : 'bg-blue-100 text-blue-700'}`}>
+                                                                        {fb.userRole}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="flex gap-0.5 justify-end mb-1">
+                                                                    {[1,2,3,4,5].map(s => (
+                                                                        <Star key={s} size={16} className={fb.rating >= s ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'} />
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-xs text-gray-400">
+                                                                    {new Date(fb.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {(fb.queries || fb.suggestions || fb.issues) && (
+                                                            <div className="space-y-2 mt-3">
+                                                                {fb.queries && (
+                                                                    <div className="bg-white/60 p-3 rounded-xl">
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Queries</p>
+                                                                        <p className="text-sm text-gray-600">{fb.queries}</p>
+                                                                    </div>
+                                                                )}
+                                                                {fb.suggestions && (
+                                                                    <div className="bg-white/60 p-3 rounded-xl">
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Suggestions</p>
+                                                                        <p className="text-sm text-gray-600">{fb.suggestions}</p>
+                                                                    </div>
+                                                                )}
+                                                                {fb.issues && (
+                                                                    <div className="bg-white/60 p-3 rounded-xl">
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Issues</p>
+                                                                        <p className="text-sm text-gray-600">{fb.issues}</p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* ─── VOLUNTEER RATINGS ──────────────── */}
+                                {feedbackSubTab === 'volunteers' && (
+                                    <div className="bg-white/40 backdrop-blur-md rounded-3xl shadow-sm border border-white/60 overflow-hidden">
+                                        <div className="px-8 py-6 border-b border-white/60">
+                                            <h2 className="text-xl font-black text-gray-800">Volunteer Performance</h2>
+                                            <p className="text-gray-400 text-sm mt-0.5">View ratings and give your own assessment</p>
+                                        </div>
+
+                                        {volunteerRatings.length === 0 ? (
+                                            <p className="text-center text-gray-400 py-12 font-medium">No volunteers found.</p>
+                                        ) : (
+                                            <div className="divide-y divide-white/60">
+                                                {volunteerRatings.map(vr => (
+                                                    <div key={vr.volunteer._id}>
+                                                        {/* Volunteer row */}
+                                                        <div
+                                                            className={`px-8 py-5 flex items-center justify-between gap-4 cursor-pointer hover:bg-white/30 transition-colors ${vr.isLowRated ? 'bg-red-50/30' : ''}`}
+                                                            onClick={() => setExpandedVolunteer(expandedVolunteer === vr.volunteer._id ? null : vr.volunteer._id)}
+                                                        >
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold text-sm uppercase overflow-hidden shrink-0">
+                                                                    {vr.volunteer.profilePhoto
+                                                                        ? <img src={vr.volunteer.profilePhoto} alt="" className="w-full h-full object-cover" />
+                                                                        : (vr.volunteer.name || 'V')[0]
+                                                                    }
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-gray-800 flex items-center gap-2">
+                                                                        {vr.volunteer.name}
+                                                                        {vr.isLowRated && (
+                                                                            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest bg-red-100 text-red-600 px-2 py-0.5 rounded-full">
+                                                                                <AlertTriangle size={10} /> Low Rating
+                                                                            </span>
+                                                                        )}
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-400">{vr.volunteer.email}</p>
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="flex items-center gap-6">
+                                                                <div className="text-right">
+                                                                    <div className="flex gap-0.5 justify-end">
+                                                                        {[1,2,3,4,5].map(s => (
+                                                                            <Star key={s} size={14} className={vr.avgRating !== null && vr.avgRating >= s ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'} />
+                                                                        ))}
+                                                                    </div>
+                                                                    <p className="text-xs text-gray-400 mt-0.5">
+                                                                        {vr.avgRating !== null ? `${vr.avgRating} avg` : 'No ratings'} · {vr.totalReviews} review{vr.totalReviews !== 1 ? 's' : ''}
+                                                                    </p>
+                                                                </div>
+
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setRateModal({ volunteerId: vr.volunteer._id, volunteerName: vr.volunteer.name });
+                                                                        setRateValue(0);
+                                                                        setRateComment('');
+                                                                    }}
+                                                                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-all shrink-0"
+                                                                >
+                                                                    Rate
+                                                                </button>
+
+                                                                {expandedVolunteer === vr.volunteer._id
+                                                                    ? <ChevronUp size={16} className="text-gray-400" />
+                                                                    : <ChevronDown size={16} className="text-gray-400" />}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expanded reviews */}
+                                                        {expandedVolunteer === vr.volunteer._id && (
+                                                            <div className="px-8 pb-6 bg-white/20">
+                                                                {vr.feedbacks.length === 0 ? (
+                                                                    <p className="text-sm text-gray-400 py-4">No individual reviews yet.</p>
+                                                                ) : (
+                                                                    <div className="space-y-3 mt-2">
+                                                                        {vr.feedbacks.map(fb => (
+                                                                            <div key={fb._id} className="bg-white/60 rounded-xl p-4 border border-white/80">
+                                                                                <div className="flex items-start justify-between gap-3">
+                                                                                    <div>
+                                                                                        <p className="text-sm font-semibold text-gray-700">
+                                                                                            {fb.userId?.name || 'Anonymous'}
+                                                                                            {fb.serviceQuality === 'Admin Review' && (
+                                                                                                <span className="ml-2 text-[10px] font-black uppercase bg-purple-100 text-purple-600 px-2 py-0.5 rounded-full">Admin</span>
+                                                                                            )}
+                                                                                        </p>
+                                                                                        {fb.complaintId && (
+                                                                                            <p className="text-xs text-gray-400">Re: {fb.complaintId.title}</p>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="flex gap-0.5">
+                                                                                        {[1,2,3,4,5].map(s => (
+                                                                                            <Star key={s} size={12} className={fb.rating >= s ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'} />
+                                                                                        ))}
+                                                                                    </div>
+                                                                                </div>
+                                                                                {fb.comment && (
+                                                                                    <p className="text-sm text-gray-500 mt-2 italic">"{fb.comment}"</p>
+                                                                                )}
+                                                                                <p className="text-[11px] text-gray-400 mt-2">
+                                                                                    {new Date(fb.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                                                                </p>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* ─── RATE VOLUNTEER MODAL ──────────────────────────── */}
+                {rateModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center">
+                        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setRateModal(null)} />
+                        <div className="relative bg-white rounded-3xl shadow-2xl px-10 py-8 max-w-sm w-full mx-4">
+                            <div className="flex flex-col gap-5">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-2xl bg-indigo-100 flex items-center justify-center text-2xl">⭐</div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-gray-800">Rate Volunteer</h3>
+                                        <p className="text-xs text-gray-400 mt-0.5">{rateModal.volunteerName}</p>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-center gap-2">
+                                    {[1,2,3,4,5].map(s => (
+                                        <Star
+                                            key={s}
+                                            size={36}
+                                            onClick={() => setRateValue(s)}
+                                            onMouseEnter={() => setRateHover(s)}
+                                            onMouseLeave={() => setRateHover(0)}
+                                            className={`cursor-pointer transition-all duration-150 hover:scale-110 ${(rateHover || rateValue) >= s ? 'text-yellow-400 fill-yellow-400' : 'text-gray-200'}`}
+                                        />
+                                    ))}
+                                </div>
+                                {rateValue > 0 && (
+                                    <p className="text-center text-xs text-gray-400">
+                                        {['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][rateValue]}
+                                    </p>
+                                )}
+
+                                <textarea
+                                    value={rateComment}
+                                    onChange={e => setRateComment(e.target.value)}
+                                    placeholder="Optional comment..."
+                                    className="w-full border-gray-200 border p-3 rounded-xl h-20 focus:ring-2 focus:ring-indigo-300 outline-none text-sm"
+                                />
+
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setRateModal(null)}
+                                        className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        onClick={handleAdminRate}
+                                        disabled={!rateValue || rateLoading}
+                                        className="flex-1 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-sm transition-all disabled:opacity-50"
+                                    >
+                                        {rateLoading ? 'Saving…' : 'Submit Rating'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 

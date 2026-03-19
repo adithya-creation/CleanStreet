@@ -5,7 +5,6 @@ const feedbackSchema = new mongoose.Schema(
     complaintId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Complaint",
-      required: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,

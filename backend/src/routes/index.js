@@ -10,6 +10,7 @@ const Notification = require('../models/Notification');
 const auth = require('../middleware/auth');
 const { isVolunteer } = require('../middleware/auth');
 const Feedback = require("../models/Feedback");
+const PlatformFeedback = require("../models/PlatformFeedback");
 
 const router = express.Router();
 
@@ -19,13 +20,11 @@ const logActivity = (data) => {
 };
 
 // ─── Helper: create notification (fire-and-forget, never throws) ────
-const createNotification = (userId, complaintId, message, type) => {
-  Notification.create({
-    user: userId,
-    complaint: complaintId,
-    message,
-    type,
-  }).catch(err => console.error('Notification error:', err));
+const createNotification = (userId, complaintId, message, type, metadata) => {
+  const doc = { user: userId, message, type };
+  if (complaintId) doc.complaint = complaintId;
+  if (metadata) doc.metadata = metadata;
+  Notification.create(doc).catch(err => console.error('Notification error:', err));
 };
 
 // ─── Notifications: Get all for current user ──────────────────
@@ -1031,9 +1030,12 @@ router.get('/volunteer/stats', auth, isVolunteer, async (req, res) => {
   }
 });
 
-//feedback
+// ════════════════════════════════════════════════════════════════
+// ─── FEEDBACK ROUTES ──────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
 
-router.post("/feedback", async (req, res) => {
+// ─── Service Feedback: Submit (User rates volunteer for a complaint) ──
+router.post("/feedback", auth, async (req, res) => {
   try {
     const {
       complaintId,
@@ -1044,19 +1046,25 @@ router.post("/feedback", async (req, res) => {
       comment,
     } = req.body;
 
-    // 🔥 get complaint
-    const complaint = await Complaint.findById(complaintId);
-
-    if (!complaint) {
-      return res.status(404).json({ message: "Complaint not found" });
+    if (!complaintId || !rating) {
+      return res.status(400).json({ success: false, message: "Complaint and rating are required" });
     }
 
-    // 🔥 optional: allow only resolved complaints
-    
+    const complaint = await Complaint.findById(complaintId).populate('user', 'name').populate('assignedTo', 'name');
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: "Complaint not found" });
+    }
+
+    // Check for duplicate feedback
+    const existing = await Feedback.findOne({ complaintId, userId: req.user.id });
+    if (existing) {
+      return res.status(400).json({ success: false, message: "You have already submitted feedback for this complaint" });
+    }
+
     const feedback = await Feedback.create({
       complaintId,
-      userId: complaint.user,        // ✅ user who created complaint
-      volunteerId: complaint.assignedTo, // ✅ volunteer from your model
+      userId: req.user.id,
+      volunteerId: complaint.assignedTo?._id || null,
       rating,
       serviceQuality,
       responseTime,
@@ -1064,28 +1072,224 @@ router.post("/feedback", async (req, res) => {
       comment,
     });
 
-    res.json({ success: true, feedback });
+    // Notify the volunteer about the rating
+    if (complaint.assignedTo) {
+      const starText = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+      createNotification(
+        complaint.assignedTo._id,
+        complaint._id,
+        `${complaint.user?.name || 'A user'} rated your work on "${complaint.title}" — ${starText} (${rating}/5)${comment ? ': "' + comment.slice(0, 80) + '"' : ''}`,
+        'feedback_rating',
+        { rating, complaintTitle: complaint.title }
+      );
+    }
 
+    res.json({ success: true, feedback });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error('Service feedback error:', err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 });
-router.get("/feedback", async (req, res) => {
+
+// ─── Service Feedback: Get all (Admin) ──────────────────────────
+router.get("/feedback", auth, async (req, res) => {
   try {
     const feedbacks = await Feedback.find()
       .populate("complaintId", "title")
       .populate("userId", "name")
-      .populate("volunteerId", "name");
-       console.log("FEEDBACKS:", feedbacks);
+      .populate("volunteerId", "name profilePhoto")
+      .sort({ createdAt: -1 });
 
-
-    res.json({
-      success: true,
-      feedbacks,
-    });
+    res.json({ success: true, feedbacks });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    console.error('Get feedback error:', err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ─── Platform Feedback: Submit (User or Volunteer) ────────────────
+router.post("/feedback/platform", auth, async (req, res) => {
+  try {
+    const { rating, queries, suggestions, issues } = req.body;
+
+    if (!rating) {
+      return res.status(400).json({ success: false, message: "Rating is required" });
+    }
+
+    const userRole = req.user.role;
+    if (userRole !== 'user' && userRole !== 'volunteer') {
+      return res.status(403).json({ success: false, message: "Only users and volunteers can submit platform feedback" });
+    }
+
+    const feedback = await PlatformFeedback.create({
+      userId: req.user.id,
+      userRole,
+      rating,
+      queries: queries || '',
+      suggestions: suggestions || '',
+      issues: issues || '',
+    });
+
+    // Notify all admins about the platform feedback
+    const admins = await User.find({ role: 'admin' }).select('_id');
+    const starText = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+    admins.forEach(admin => {
+      createNotification(
+        admin._id,
+        null,
+        `${req.user.name} (${userRole}) submitted platform feedback — ${starText} (${rating}/5)`,
+        'platform_feedback',
+        { rating, userRole, userName: req.user.name }
+      );
+    });
+
+    res.json({ success: true, feedback });
+  } catch (err) {
+    console.error('Platform feedback error:', err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
+// ─── Volunteer: Get my received ratings ───────────────────────────
+router.get("/feedback/volunteer/my-ratings", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'volunteer') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const ratings = await Feedback.find({ volunteerId: req.user.id })
+      .populate('complaintId', 'title')
+      .populate('userId', 'name profilePhoto')
+      .sort({ createdAt: -1 });
+
+    // Calculate stats
+    const totalReviews = ratings.length;
+    const avgRating = totalReviews > 0
+      ? (ratings.reduce((sum, r) => sum + r.rating, 0) / totalReviews).toFixed(1)
+      : 0;
+
+    // Star distribution
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    ratings.forEach(r => { if (r.rating >= 1 && r.rating <= 5) distribution[r.rating]++; });
+
+    res.json({ success: true, ratings, stats: { totalReviews, avgRating: parseFloat(avgRating), distribution } });
+  } catch (err) {
+    console.error('Get volunteer ratings error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Admin: Get all platform feedback ─────────────────────────────
+router.get("/admin/feedback/platform", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const feedbacks = await PlatformFeedback.find()
+      .populate('userId', 'name email profilePhoto')
+      .sort({ createdAt: -1 });
+
+    // Calculate overall stats
+    const totalFeedbacks = feedbacks.length;
+    const avgRating = totalFeedbacks > 0
+      ? (feedbacks.reduce((sum, f) => sum + f.rating, 0) / totalFeedbacks).toFixed(1)
+      : 0;
+
+    res.json({ success: true, feedbacks, stats: { totalFeedbacks, avgRating: parseFloat(avgRating) } });
+  } catch (err) {
+    console.error('Admin get platform feedback error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Admin: Get volunteer ratings overview ────────────────────────
+router.get("/admin/feedback/volunteer-ratings", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Get all volunteers
+    const volunteers = await User.find({ role: 'volunteer' }).select('name email profilePhoto');
+
+    // Get all service feedback
+    const allFeedback = await Feedback.find()
+      .populate('complaintId', 'title')
+      .populate('userId', 'name')
+      .sort({ createdAt: -1 });
+
+    // Group by volunteer
+    const volunteerRatings = volunteers.map(vol => {
+      const feedbacks = allFeedback.filter(f => f.volunteerId?.toString() === vol._id.toString());
+      const totalReviews = feedbacks.length;
+      const avgRating = totalReviews > 0
+        ? parseFloat((feedbacks.reduce((sum, f) => sum + f.rating, 0) / totalReviews).toFixed(1))
+        : null;
+
+      return {
+        volunteer: vol,
+        totalReviews,
+        avgRating,
+        isLowRated: avgRating !== null && avgRating <= 2,
+        feedbacks,
+      };
+    });
+
+    // Sort: low-rated first, then by total reviews desc
+    volunteerRatings.sort((a, b) => {
+      if (a.isLowRated && !b.isLowRated) return -1;
+      if (!a.isLowRated && b.isLowRated) return 1;
+      return b.totalReviews - a.totalReviews;
+    });
+
+    res.json({ success: true, volunteerRatings });
+  } catch (err) {
+    console.error('Admin volunteer ratings error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// ─── Admin: Rate a volunteer ──────────────────────────────────────
+router.post("/admin/feedback/rate-volunteer", auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    const { volunteerId, rating, comment } = req.body;
+    if (!volunteerId || !rating) {
+      return res.status(400).json({ success: false, message: 'Volunteer and rating are required' });
+    }
+
+    const volunteer = await User.findById(volunteerId);
+    if (!volunteer || volunteer.role !== 'volunteer') {
+      return res.status(404).json({ success: false, message: 'Volunteer not found' });
+    }
+
+    // Create a feedback entry (admin-originated, no complaint ref)
+    const feedback = await Feedback.create({
+      complaintId: null,
+      userId: req.user.id,
+      volunteerId,
+      rating,
+      comment: comment || '',
+      serviceQuality: 'Admin Review',
+    });
+
+    // Notify the volunteer
+    const starText = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+    createNotification(
+      volunteerId,
+      null,
+      `Admin ${req.user.name} rated your overall performance — ${starText} (${rating}/5)${comment ? ': "' + comment.slice(0, 80) + '"' : ''}`,
+      'feedback_rating',
+      { rating, fromAdmin: true }
+    );
+
+    res.json({ success: true, feedback });
+  } catch (err) {
+    console.error('Admin rate volunteer error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });

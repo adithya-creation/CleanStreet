@@ -11,6 +11,7 @@ import { isAuthenticated } from './services/authService';
 import AdminDashboard from "./Pages/AdminDashboard";
 import Notifications from "./Pages/Notifications";
 import Feedback from "./Pages/Feedback";
+import VolunteerRatings from "./Pages/VolunteerRatings";
 
 // Redirects to /login if no JWT token is present
 const ProtectedRoute = ({ children }) => {
@@ -28,6 +29,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/admin" element={<AdminDashboard/>}/>
         <Route path="/notifications" element={<Notifications />} />
+        <Route path="/volunteer/ratings" element={<VolunteerRatings />} />
 
         {/* Protected routes — require JWT token */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
